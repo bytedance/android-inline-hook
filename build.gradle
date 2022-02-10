@@ -1,0 +1,49 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.1.1'
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+ext {
+    minSdkVersion = 16
+    compileSdkVersion = 31
+    targetSdkVersion = 31
+    buildToolsVersion = '31.0.0'
+    javaVersion = JavaVersion.VERSION_1_7
+    ndkVersion = "23.1.7779620"
+    cmakeVersion = "3.18.1"
+    abiFilters = "armeabi-v7a,arm64-v8a"
+    useASAN = false
+    dependencyOnLocalLibrary = true
+    shadowhookVersion = "1.0.2"
+
+    POM_GROUP_ID = "com.bytedance.android"
+    POM_ARTIFACT_ID = "shadowhook"
+    POM_VERSION_NAME = "1.0.2"
+
+    POM_NAME = "shadowhook"
+    POM_DESCRIPTION = "shadowhook is an inline hook library for Android apps."
+    POM_URL = "https://github.com/bytedance/android-inline-hook"
+    POM_INCEPTION_YEAR = "2021"
+    POM_PACKAGING = "aar"
+
+    POM_SCM_CONNECTION = "https://github.com/bytedance/android-inline-hook.git"
+
+    POM_ISSUE_SYSTEM = "github"
+    POM_ISSUE_URL = "https://github.com/bytedance/android-inline-hook/issues"
+
+    POM_LICENCE_NAME = "The MIT License"
+    POM_LICENCE_URL = "https://opensource.org/licenses/MIT"
+    POM_LICENCE_DIST = "repo"
+
+    POM_DEVELOPER_ID = "bytedance"
+    POM_DEVELOPER_NAME = "bytedance"
+}

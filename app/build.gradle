@@ -1,0 +1,85 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    ndkVersion rootProject.ext.ndkVersion
+    defaultConfig {
+        applicationId "com.bytedance.shadowhook.sample"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            abiFilters rootProject.ext.abiFilters.split(",")
+        }
+        externalNativeBuild {
+            cmake {
+                abiFilters rootProject.ext.abiFilters.split(",")
+                if(rootProject.ext.dependencyOnLocalLibrary) {
+                    arguments "-DDEPENDENCY_ON_LOCAL_LIBRARY=ON"
+                }
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version rootProject.ext.cmakeVersion
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled true
+        }
+    }
+    packagingOptions {
+        jniLibs {
+            pickFirsts += ['**/libshadowhook.so']
+        }
+    }
+    if (!rootProject.ext.dependencyOnLocalLibrary) {
+        buildFeatures {
+            prefab true
+        }
+    }
+    if (rootProject.ext.useASAN) {
+        packagingOptions {
+            doNotStrip "**/*.so"
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.4.1'
+    implementation 'com.google.android.material:material:1.5.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
+
+    if (rootProject.ext.dependencyOnLocalLibrary) {
+        implementation project(':shadowhook')
+    } else {
+        implementation 'com.bytedance.android:shadowhook:' + rootProject.ext.shadowhookVersion
+    }
+    implementation project(':systest')
+}
+
+apply from: rootProject.file('gradle/sanitizer.gradle')
+
+if (rootProject.ext.dependencyOnLocalLibrary) {
+    tasks.whenTaskAdded { task ->
+        if (task.name.startsWith('buildCMakeDebug[')) {
+            task.dependsOn(':shadowhook:mergeDebugNativeLibs')
+        } else if (task.name.startsWith('buildCMakeRelWithDebInfo[')) {
+            task.dependsOn(':shadowhook:stripReleaseDebugSymbols')
+        }
+    }
+}

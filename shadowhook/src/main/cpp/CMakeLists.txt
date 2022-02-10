@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.18.1)
+project(shadowhook)
+
+if(${ANDROID_ABI} STREQUAL "arm64-v8a")
+    set(ARCH "arm64")
+elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    set(ARCH "arm")
+endif()
+
+file(GLOB SRC *.c arch/${ARCH}/*.c common/*.c third_party/*/*.c)
+add_library(shadowhook SHARED ${SRC})
+target_compile_features(shadowhook PUBLIC c_std_11)
+target_compile_options(shadowhook PUBLIC -Weverything -Werror)
+target_include_directories(shadowhook PUBLIC . include arch/${ARCH} common third_party/xdl third_party/bsd third_party/lss)
+target_link_libraries(shadowhook log)
+
+if(USEASAN)
+    target_compile_options(shadowhook PUBLIC -fsanitize=address -fno-omit-frame-pointer)
+    target_link_options(shadowhook PUBLIC -fsanitize=address)
+else()
+    target_compile_options(shadowhook PUBLIC -Oz -flto -faddrsig -ffunction-sections -fdata-sections)
+    target_link_options(shadowhook PUBLIC -Oz -flto -Wl,--icf=all -Wl,-mllvm,--enable-machine-outliner=always -Wl,--exclude-libs,ALL -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/shadowhook.map.txt)
+endif()

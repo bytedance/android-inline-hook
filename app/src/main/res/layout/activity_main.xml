@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView style="@style/Theme.TextView.Top"
+                android:text="adb logcat -b main -s shadowhook_tag" />
+
+            <TextView style="@style/Theme.TextView.Title"
+                android:text="1. unit test"  />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/unitTestHookSymAddr"
+                android:onClick="onUnitTestHookSymAddrClick"
+                android:text="hook symbol address" />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/unitTestHookSymName"
+                android:onClick="onUnitTestHookSymNameClick"
+                android:text="hook symbol name" />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/unitTestUnhook"
+                android:onClick="onUnitTestUnhookClick"
+                android:text="unhook" />
+
+            <Button style="@style/Theme.Button.Red"
+                android:id="@+id/unitTestLoad"
+                android:onClick="onUnitTestLoadClick"
+                android:text="load libhookee2.so (automatically hook)" />
+
+            <Button style="@style/Theme.Button.Red"
+                android:id="@+id/unitTestRun"
+                android:onClick="onUnitTestRunClick"
+                android:text="run" />
+
+            <TextView style="@style/Theme.TextView.Title"
+                android:text="2. system test"  />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/systemtestTestHook"
+                android:onClick="onSystemTestHookClick"
+                android:text="hook" />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/systemtestTestUnhook"
+                android:onClick="onSystemTestUnhookClick"
+                android:text="unhook" />
+
+            <Button style="@style/Theme.Button.Red"
+                android:id="@+id/systemtestTestRun"
+                android:onClick="onSystemTestRunClick"
+                android:text="run" />
+
+            <TextView style="@style/Theme.TextView.Title"
+                android:text="3. operation records"  />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/getRecords"
+                android:onClick="onGetRecordsClick"
+                android:text="get records (as a string)" />
+
+            <Button style="@style/Theme.Button"
+                android:id="@+id/dumpRecords"
+                android:onClick="onDumpRecordsClick"
+                android:text="dump records (to FD)" />
+
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

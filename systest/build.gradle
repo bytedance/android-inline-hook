@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    ndkVersion rootProject.ext.ndkVersion
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        consumerProguardFiles 'consumer-rules.pro'
+        externalNativeBuild {
+            cmake {
+                abiFilters rootProject.ext.abiFilters.split(",")
+                if(rootProject.ext.useASAN){
+                    arguments "-DANDROID_ARM_MODE=arm"
+                    arguments "-DUSEASAN=ON"
+                }
+                if(rootProject.ext.dependencyOnLocalLibrary) {
+                    arguments "-DDEPENDENCY_ON_LOCAL_LIBRARY=ON"
+                }
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version rootProject.ext.cmakeVersion
+        }
+    }
+    compileOptions {
+        sourceCompatibility rootProject.ext.javaVersion
+        targetCompatibility rootProject.ext.javaVersion
+    }
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+    packagingOptions {
+        jniLibs {
+            excludes += ['**/libshadowhook.so']
+        }
+    }
+}
+
+dependencies {
+    if(rootProject.ext.dependencyOnLocalLibrary) {
+        implementation project(':shadowhook')
+    } else {
+        implementation 'com.bytedance.android:shadowhook:' + rootProject.ext.shadowhookVersion
+    }
+}
+
+if (rootProject.ext.dependencyOnLocalLibrary) {
+    tasks.whenTaskAdded { task ->
+        if (task.name.startsWith('buildCMakeDebug[')) {
+            task.dependsOn(':shadowhook:mergeDebugNativeLibs')
+        } else if (task.name.startsWith('buildCMakeRelWithDebInfo[')) {
+            task.dependsOn(':shadowhook:stripReleaseDebugSymbols')
+        }
+    }
+}
