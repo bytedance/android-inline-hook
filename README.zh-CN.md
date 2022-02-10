@@ -7,7 +7,7 @@
 
 [README English Version](README.md)
 
-**shadowhook** 是一个针对 Android app 的 inline hook 库。我们用 app 开发者的视角来构建它。
+**shadowhook** 是一个针对 Android app 的 inline hook 库。
 
 > shadowhook 是 “android-inline-hook 项目” 的一个模块。
 

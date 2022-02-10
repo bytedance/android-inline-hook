@@ -7,7 +7,7 @@
 
 [README 中文版](README.zh-CN.md)
 
-**shadowhook** is an inline hook library for Android apps. We build it from the perspective of an app developer.
+**shadowhook** is an inline hook library for Android apps.
 
 > shadowhook is a module of "the android-inline-hook project".
 
