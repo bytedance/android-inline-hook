@@ -46,15 +46,13 @@ android {
         jniLibs {
             pickFirsts += ['**/libshadowhook.so']
         }
+        if (rootProject.ext.useASAN) {
+            doNotStrip "**/*.so"
+        }
     }
     if (!rootProject.ext.dependencyOnLocalLibrary) {
         buildFeatures {
             prefab true
-        }
-    }
-    if (rootProject.ext.useASAN) {
-        packagingOptions {
-            doNotStrip "**/*.so"
         }
     }
 }
