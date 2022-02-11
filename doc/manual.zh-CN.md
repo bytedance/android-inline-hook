@@ -430,7 +430,7 @@ shadowhook 的代理函数管理机制完成了一些事情：
 
 在 shared 模式中，默认是不允许 proxy 函数被重入的，因为重入可能发生在多个使用 shadowhook 的 SDK 之间，最终形成了一个无限循环的调用环（比如：SDK1 的 `open_proxy` 中调用了 `read`，SDK2 的 `read_proxy` 中又调用了 `open`）。
 
-但是，某些特殊使用场景中，由业务逻辑控制的重入可能是需要的，他们并不会形成“无限的”调用环，而是会在某些业务条件满足时终止。如果你确认你的使用场景是这种情况，请在 proxy 函数中调用 `SHADOWHOOK_ALLOW_REENTRANT` 以允许重入，当 proxy 函数的逻辑运行到“不再需要允许重入的部分”时，可以调用 `SHADOWHOOK_RETURN_ADDRESS`。
+但是，某些特殊使用场景中，由业务逻辑控制的重入可能是需要的，他们并不会形成“无限的”调用环，而是会在某些业务条件满足时终止。如果你确认你的使用场景是这种情况，请在 proxy 函数中调用 `SHADOWHOOK_ALLOW_REENTRANT` 以允许重入，当 proxy 函数的逻辑运行到“不再需要允许重入的部分”时，可以调用 `SHADOWHOOK_DISALLOW_REENTRANT`。
 
 ### 举例一（C源文件）
 

@@ -432,7 +432,7 @@ In the proxy function, the original LR needs to be obtained through the `SHADOWH
 
 In shared mode, proxy functions are not allowed to be reentrant by default, because reentrancy may occur between multiple SDKs using shadowhook, eventually forming an infinite loop of calls (for example, `open_proxy` in SDK1 call `read`, and `read_proxy` in SDK2 call `open`).
 
-However, in some special usage scenarios, reentrancy controlled by business logic may be required, they will not form an "infinite" call loop, but will terminate when certain business conditions are met. If you confirm that this is the case for your use case, please call `SHADOWHOOK_ALLOW_REENTRANT` in the proxy function to allow reentrancy, and when the logic of the proxy function runs to "no longer need to allow reentrancy", you can call `SHADOWHOOK_RETURN_ADDRESS`.
+However, in some special usage scenarios, reentrancy controlled by business logic may be required, they will not form an "infinite" call loop, but will terminate when certain business conditions are met. If you confirm that this is the case for your use case, please call `SHADOWHOOK_ALLOW_REENTRANT` in the proxy function to allow reentrancy, and when the logic of the proxy function runs to "no longer need to allow reentrancy", you can call `SHADOWHOOK_DISALLOW_REENTRANT`.
 
 ### Example 1 (C source file)
 
