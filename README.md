@@ -125,7 +125,7 @@ import com.bytedance.shadowhook.ShadowHook;
 
 public class MySdk {
     public static void init() {
-        shadowhook.init(new ShadowHook.ConfigBuilder()
+        ShadowHook.init(new ShadowHook.ConfigBuilder()
             .setMode(ShadowHook.Mode.UNIQUE)
             .build());
     }

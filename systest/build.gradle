@@ -46,6 +46,16 @@ android {
             excludes += ['**/libshadowhook.so']
         }
     }
+    if (!rootProject.ext.dependencyOnLocalLibrary) {
+        buildFeatures {
+            prefab true
+        }
+    }
+    if (rootProject.ext.useASAN) {
+        packagingOptions {
+            doNotStrip "**/*.so"
+        }
+    }
 }
 
 dependencies {

@@ -47,6 +47,11 @@ android {
             headers "src/main/cpp/include"
         }
     }
+//    if (rootProject.ext.useASAN) {
+//        packagingOptions {
+//            doNotStrip "**/*.so"
+//        }
+//    }
 }
 
 apply from: rootProject.file('gradle/check.gradle')
