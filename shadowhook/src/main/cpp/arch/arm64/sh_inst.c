@@ -71,7 +71,7 @@ static int sh_inst_hook_rewrite(sh_inst_t *self, uintptr_t target_addr, uintptr_
 
 #ifdef SH_CONFIG_TRY_WITH_EXIT
 
-// B: [-128M, +128M - 2]
+// B: [-128M, +128M - 4]
 #define SH_INST_A64_B_RANGE_LOW  (134217728)
 #define SH_INST_A64_B_RANGE_HIGH (134217724)
 
