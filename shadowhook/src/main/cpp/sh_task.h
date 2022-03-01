@@ -22,14 +22,18 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
 #include "shadowhook.h"
 
 typedef struct sh_task sh_task_t;
 
-sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t caller_addr);
-sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr, uintptr_t *orig_addr, shadowhook_hooked_t hooked, void *hooked_arg, uintptr_t caller_addr);
+sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
+                                         uintptr_t caller_addr);
+sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,
+                                      uintptr_t *orig_addr, shadowhook_hooked_t hooked, void *hooked_arg,
+                                      uintptr_t caller_addr);
 void sh_task_destroy(sh_task_t *self);
 
 int sh_task_hook(sh_task_t *self);

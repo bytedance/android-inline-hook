@@ -32,9 +32,9 @@
 #ifndef IO_HEXHACKING_XDL
 #define IO_HEXHACKING_XDL
 
-#include <stddef.h>
 #include <dlfcn.h>
 #include <link.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,17 +58,16 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size);
 //
 // Enhanced dladdr().
 //
-typedef struct
-{
-    // same as Dl_info:
-    const char       *dli_fname;  // Pathname of shared object that contains address.
-    void             *dli_fbase;  // Address at which shared object is loaded.
-    const char       *dli_sname;  // Name of nearest symbol with address lower than addr.
-    void             *dli_saddr;  // Exact address of symbol named in dli_sname.
-    // added by xDL:
-    size_t            dli_ssize;  // Symbol size of nearest symbol with address lower than addr.
-    const ElfW(Phdr) *dlpi_phdr;  // Pointer to array of ELF program headers for this object.
-    size_t            dlpi_phnum; // Number of items in dlpi_phdr.
+typedef struct {
+  // same as Dl_info:
+  const char *dli_fname;  // Pathname of shared object that contains address.
+  void *dli_fbase;        // Address at which shared object is loaded.
+  const char *dli_sname;  // Name of nearest symbol with address lower than addr.
+  void *dli_saddr;        // Exact address of symbol named in dli_sname.
+  // added by xDL:
+  size_t dli_ssize;             // Symbol size of nearest symbol with address lower than addr.
+  const ElfW(Phdr) *dlpi_phdr;  // Pointer to array of ELF program headers for this object.
+  size_t dlpi_phnum;            // Number of items in dlpi_phdr.
 } xdl_info;
 int xdl_addr(void *addr, xdl_info *info, void **cache);
 void xdl_addr_clean(void **cache);

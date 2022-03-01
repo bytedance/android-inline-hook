@@ -1,7 +1,3 @@
-/*      $NetBSD: tree.h,v 1.8 2004/03/28 19:38:30 provos Exp $  */
-/*      $OpenBSD: tree.h,v 1.7 2002/10/17 21:51:54 art Exp $    */
-/* $FreeBSD: stable/9/sys/sys/tree.h 189204 2009-03-01 04:57:23Z bms $ */
-
 /*-
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
  * All rights reserved.

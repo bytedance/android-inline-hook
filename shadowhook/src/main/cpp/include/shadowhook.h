@@ -74,10 +74,9 @@ extern "C" {
 #endif
 
 // init
-typedef enum
-{
-    SHADOWHOOK_MODE_SHARED = 0, // a function can be hooked multiple times
-    SHADOWHOOK_MODE_UNIQUE = 1  // a function can only be hooked once, and hooking again will report an error
+typedef enum {
+  SHADOWHOOK_MODE_SHARED = 0,  // a function can be hooked multiple times
+  SHADOWHOOK_MODE_UNIQUE = 1   // a function can only be hooked once, and hooking again will report an error
 } shadowhook_mode_t;
 int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
 int shadowhook_get_init_errno(void);
@@ -94,14 +93,16 @@ int shadowhook_get_errno(void);
 const char *shadowhook_to_errmsg(int error_number);
 
 // hook and unhook
-typedef void (*shadowhook_hooked_t)(int error_number, const char *lib_name, const char *sym_name, void *sym_addr, void *new_addr, void *orig_addr, void *arg);
+typedef void (*shadowhook_hooked_t)(int error_number, const char *lib_name, const char *sym_name,
+                                    void *sym_addr, void *new_addr, void *orig_addr, void *arg);
 void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr);
 void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr);
-void *shadowhook_hook_sym_name_callback(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr, shadowhook_hooked_t hooked, void *hooked_arg);
+void *shadowhook_hook_sym_name_callback(const char *lib_name, const char *sym_name, void *new_addr,
+                                        void **orig_addr, shadowhook_hooked_t hooked, void *hooked_arg);
 int shadowhook_unhook(void *stub);
 
 // get operation records
-#define SHADOWHOOK_RECORD_ITEM_ALL             0x3FF // 0b1111111111
+#define SHADOWHOOK_RECORD_ITEM_ALL             0x3FF  // 0b1111111111
 #define SHADOWHOOK_RECORD_ITEM_TIMESTAMP       (1 << 0)
 #define SHADOWHOOK_RECORD_ITEM_CALLER_LIB_NAME (1 << 1)
 #define SHADOWHOOK_RECORD_ITEM_OP              (1 << 2)
@@ -135,36 +136,47 @@ void *shadowhook_get_return_address(void);
 
 // call previous function in proxy-function
 #ifdef __cplusplus
-#define SHADOWHOOK_CALL_PREV(func, ...) ((decltype(&(func)))shadowhook_get_prev_func((void *)(func)))(__VA_ARGS__)
+#define SHADOWHOOK_CALL_PREV(func, ...) \
+  ((decltype(&(func)))shadowhook_get_prev_func((void *)(func)))(__VA_ARGS__)
 #else
-#define SHADOWHOOK_CALL_PREV(func, func_sig, ...) ((func_sig)shadowhook_get_prev_func((void *)(func)))(__VA_ARGS__)
+#define SHADOWHOOK_CALL_PREV(func, func_sig, ...) \
+  ((func_sig)shadowhook_get_prev_func((void *)(func)))(__VA_ARGS__)
 #endif
 // pop stack in proxy-function (for C/C++)
-#define SHADOWHOOK_POP_STACK() do{if(SHADOWHOOK_IS_SHARED_MODE) shadowhook_pop_stack(__builtin_return_address(0));}while(0)
+#define SHADOWHOOK_POP_STACK()                                                        \
+  do {                                                                                \
+    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_pop_stack(__builtin_return_address(0)); \
+  } while (0)
 
 // pop stack in proxy-function (for C++ only)
 #ifdef __cplusplus
 class ShadowhookStackScope {
-    public:
-        ShadowhookStackScope(void *return_address) : return_address_(return_address) {
-        }
-        ~ShadowhookStackScope() {
-            if(SHADOWHOOK_IS_SHARED_MODE)
-                shadowhook_pop_stack(return_address_);
-        }
-    private:
-        void *return_address_;
+ public:
+  ShadowhookStackScope(void *return_address) : return_address_(return_address) {}
+  ~ShadowhookStackScope() {
+    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_pop_stack(return_address_);
+  }
+
+ private:
+  void *return_address_;
 };
 #define SHADOWHOOK_STACK_SCOPE() ShadowhookStackScope __shadowhook_stack_scope(__builtin_return_address(0))
 #endif
 
 // allow reentrant of the current proxy-function
-#define SHADOWHOOK_ALLOW_REENTRANT() do{if(SHADOWHOOK_IS_SHARED_MODE) shadowhook_allow_reentrant(__builtin_return_address(0));}while(0)
+#define SHADOWHOOK_ALLOW_REENTRANT()                                                        \
+  do {                                                                                      \
+    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_allow_reentrant(__builtin_return_address(0)); \
+  } while (0)
 
 // disallow reentrant of the current proxy-function
-#define SHADOWHOOK_DISALLOW_REENTRANT() do{if(SHADOWHOOK_IS_SHARED_MODE) shadowhook_disallow_reentrant(__builtin_return_address(0));}while(0)
+#define SHADOWHOOK_DISALLOW_REENTRANT()                                                        \
+  do {                                                                                         \
+    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_disallow_reentrant(__builtin_return_address(0)); \
+  } while (0)
 
 // get return address in proxy-function
-#define SHADOWHOOK_RETURN_ADDRESS() ((void *)(SHADOWHOOK_IS_SHARED_MODE ? shadowhook_get_return_address() : __builtin_return_address(0)))
+#define SHADOWHOOK_RETURN_ADDRESS() \
+  ((void *)(SHADOWHOOK_IS_SHARED_MODE ? shadowhook_get_return_address() : __builtin_return_address(0)))
 
 #endif

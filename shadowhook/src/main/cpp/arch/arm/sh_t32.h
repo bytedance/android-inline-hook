@@ -22,13 +22,15 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
+
 #include "sh_txx.h"
 
 size_t sh_t32_get_rewrite_inst_len(uint16_t high_inst, uint16_t low_inst);
-size_t sh_t32_rewrite(uint16_t *buf, uint16_t high_inst, uint16_t low_inst, uintptr_t pc, sh_txx_rewrite_info_t *rinfo);
+size_t sh_t32_rewrite(uint16_t *buf, uint16_t high_inst, uint16_t low_inst, uintptr_t pc,
+                      sh_txx_rewrite_info_t *rinfo);
 
 size_t sh_t32_absolute_jump(uint16_t *buf, bool is_align4, uintptr_t addr);
 size_t sh_t32_relative_jump(uint16_t *buf, uintptr_t addr, uintptr_t pc);

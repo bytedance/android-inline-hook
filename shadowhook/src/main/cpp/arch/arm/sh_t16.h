@@ -22,20 +22,20 @@
 // Created by Pengying Xu (xupengying@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
+
 #include "sh_txx.h"
 
-typedef struct
-{
-    uint16_t  insts[8];
-    size_t    insts_len; // 2 - 16 (bytes)
-    size_t    insts_cnt; // 1 - 4
-    size_t    insts_else_cnt;  // 0 - 3
-    uintptr_t pcs[4];
-    uint8_t   firstcond;
-    uint8_t   padding[3];
+typedef struct {
+  uint16_t insts[8];
+  size_t insts_len;       // 2 - 16 (bytes)
+  size_t insts_cnt;       // 1 - 4
+  size_t insts_else_cnt;  // 0 - 3
+  uintptr_t pcs[4];
+  uint8_t firstcond;
+  uint8_t padding[3];
 } sh_t16_it_t;
 
 bool sh_t16_parse_it(sh_t16_it_t *it, uint16_t inst, uintptr_t pc);

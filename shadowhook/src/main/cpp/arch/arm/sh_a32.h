@@ -25,14 +25,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct
-{
-    uintptr_t  overwrite_start_addr;
-    uintptr_t  overwrite_end_addr;
-    uint32_t  *rewrite_buf;
-    size_t     rewrite_buf_offset;
-    size_t     rewrite_inst_lens[2];
-    size_t     rewrite_inst_lens_cnt;
+typedef struct {
+  uintptr_t overwrite_start_addr;
+  uintptr_t overwrite_end_addr;
+  uint32_t *rewrite_buf;
+  size_t rewrite_buf_offset;
+  size_t rewrite_inst_lens[2];
+  size_t rewrite_inst_lens_cnt;
 } sh_a32_rewrite_info_t;
 
 size_t sh_a32_get_rewrite_inst_len(uint32_t inst);

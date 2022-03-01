@@ -25,7 +25,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-int sh_recorder_add_hook(int error_number, bool is_hook_sym_addr, uintptr_t sym_addr, const char *lib_name, const char *sym_name, uintptr_t new_addr, size_t backup_len, uintptr_t stub, uintptr_t caller_addr);
+int sh_recorder_add_hook(int error_number, bool is_hook_sym_addr, uintptr_t sym_addr, const char *lib_name,
+                         const char *sym_name, uintptr_t new_addr, size_t backup_len, uintptr_t stub,
+                         uintptr_t caller_addr);
 int sh_recorder_add_unhook(int error_number, uintptr_t stub, uintptr_t caller_addr);
 
 char *sh_recorder_get(uint32_t item_flags);

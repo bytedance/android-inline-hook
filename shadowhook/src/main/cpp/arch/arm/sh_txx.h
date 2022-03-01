@@ -22,17 +22,17 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct
-{
-    uintptr_t  start_addr;
-    uintptr_t  end_addr;
-    uint16_t  *buf;
-    size_t     buf_offset;
-    size_t     inst_lens[13]; // 26 / 2 = 13
-    size_t     inst_lens_cnt;
+typedef struct {
+  uintptr_t start_addr;
+  uintptr_t end_addr;
+  uint16_t *buf;
+  size_t buf_offset;
+  size_t inst_lens[13];  // 26 / 2 = 13
+  size_t inst_lens_cnt;
 } sh_txx_rewrite_info_t;
 
 bool sh_txx_is_addr_need_fix(uintptr_t addr, sh_txx_rewrite_info_t *rinfo);

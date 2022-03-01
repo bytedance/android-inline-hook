@@ -24,8 +24,8 @@
 #ifndef IO_HEXHACKING_XDL_ITERATE
 #define IO_HEXHACKING_XDL_ITERATE
 
-#include <stddef.h>
 #include <link.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

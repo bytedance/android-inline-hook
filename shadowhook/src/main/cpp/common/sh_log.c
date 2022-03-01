@@ -21,9 +21,11 @@
 
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
-#include <stdbool.h>
-#include <android/log.h>
 #include "sh_log.h"
+
+#include <android/log.h>
+#include <stdbool.h>
+
 #include "sh_config.h"
 
 android_LogPriority sh_log_priority =
@@ -34,17 +36,15 @@ android_LogPriority sh_log_priority =
 #endif
     ;
 
-bool sh_log_get_debuggable(void)
-{
-    return sh_log_priority <= ANDROID_LOG_INFO;
+bool sh_log_get_debuggable(void) {
+  return sh_log_priority <= ANDROID_LOG_INFO;
 }
 
-void sh_log_set_debuggable(bool debuggable)
-{
+void sh_log_set_debuggable(bool debuggable) {
 #ifdef SH_CONFIG_DEBUG
-    (void)debuggable;
-    sh_log_priority = ANDROID_LOG_INFO;
+  (void)debuggable;
+  sh_log_priority = ANDROID_LOG_INFO;
 #else
-    sh_log_priority = (debuggable ? ANDROID_LOG_INFO : ANDROID_LOG_SILENT);
+  sh_log_priority = (debuggable ? ANDROID_LOG_INFO : ANDROID_LOG_SILENT);
 #endif
 }

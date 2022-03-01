@@ -34,8 +34,16 @@
 
 #else
 
-#define SH_SIG_TRY(...)    do{if(0 == 0){
-#define SH_SIG_CATCH(...)  }else{
-#define SH_SIG_EXIT        }}while(0);
+#define SH_SIG_TRY(...) \
+  do {                  \
+    if (0 == 0) {
+#define SH_SIG_CATCH(...) \
+  }                       \
+  else {
+#define SH_SIG_EXIT \
+  }                 \
+  }                 \
+  while (0)         \
+    ;
 
 #endif
