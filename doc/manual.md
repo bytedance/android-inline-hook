@@ -87,7 +87,7 @@ android {
 
 ## Add packaging options
 
-If you are using shadowhook in an SDK project, you may need to avoid packaging lib shadowhook.so into your AAR, so as not to encounter duplicate lib shadowhook.so file when packaging the app project.
+If you are using shadowhook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
 
 ```Gradle
 android {
