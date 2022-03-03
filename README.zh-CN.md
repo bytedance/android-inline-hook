@@ -217,7 +217,9 @@ void do_unhook()
 
 ## 贡献
 
-[Contributing Guide](CONTRIBUTING.md)
+* [Code of Conduct](CODE_OF_CONDUCT.md)
+* [Contributing Guide](CONTRIBUTING.md)
+* [Reporting Security vulnerabilities](SECURITY.md)
 
 
 ## 许可证
