@@ -25,6 +25,7 @@
 
 #include <inttypes.h>
 #include <malloc.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,7 +34,6 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-#include "poll.h"
 #include "queue.h"
 #include "sh_config.h"
 #include "sh_errno.h"

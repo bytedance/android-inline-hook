@@ -21,11 +21,11 @@
 
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
+#include <errno.h>
 #include <jni.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "errno.h"
 #include "sh_log.h"
 #include "shadowhook.h"
 
