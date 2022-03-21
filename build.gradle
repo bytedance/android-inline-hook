@@ -23,11 +23,11 @@ ext {
     abiFilters = "armeabi-v7a,arm64-v8a"
     useASAN = false
     dependencyOnLocalLibrary = true
-    shadowhookVersion = "1.0.2"
+    shadowhookVersion = "1.0.3"
 
     POM_GROUP_ID = "com.bytedance.android"
     POM_ARTIFACT_ID = "shadowhook"
-    POM_VERSION_NAME = "1.0.2"
+    POM_VERSION_NAME = "1.0.3"
 
     POM_NAME = "shadowhook"
     POM_DESCRIPTION = "shadowhook is an inline hook library for Android apps."

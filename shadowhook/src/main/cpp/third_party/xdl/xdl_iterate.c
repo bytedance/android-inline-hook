@@ -81,15 +81,9 @@ static int xdl_iterate_open_or_rewind_maps(FILE **maps) {
   return 0;
 }
 
-static uintptr_t xdl_iterate_get_pathname_from_maps(struct dl_phdr_info *info, char *buf, size_t buf_len,
-                                                    FILE **maps) {
-  // get base address
-  uintptr_t min_vaddr = xdl_iterate_get_min_vaddr(info);
-  if (UINTPTR_MAX == min_vaddr) return 0;  // failed
-  uintptr_t base = (uintptr_t)(info->dlpi_addr + min_vaddr);
-
+static int xdl_iterate_get_pathname_from_maps(uintptr_t base, char *buf, size_t buf_len, FILE **maps) {
   // open or rewind maps-file
-  if (0 != xdl_iterate_open_or_rewind_maps(maps)) return 0;  // failed
+  if (0 != xdl_iterate_open_or_rewind_maps(maps)) return -1;  // failed
 
   char line[1024];
   while (fgets(line, sizeof(line), *maps)) {
@@ -106,10 +100,10 @@ static uintptr_t xdl_iterate_get_pathname_from_maps(struct dl_phdr_info *info, c
 
     // found it
     strlcpy(buf, pathname, buf_len);
-    return (uintptr_t)buf;  // OK
+    return 0;  // OK
   }
 
-  return 0;  // failed
+  return -1;  // failed
 }
 
 static int xdl_iterate_by_linker_cb(struct dl_phdr_info *info, size_t size, void *arg) {
@@ -142,11 +136,15 @@ static int xdl_iterate_by_linker_cb(struct dl_phdr_info *info, size_t size, void
 
   // fix dlpi_name (from /proc/self/maps)
   if ('/' != info->dlpi_name[0] && '[' != info->dlpi_name[0] && (0 != (flags & XDL_FULL_PATHNAME))) {
-    char buf[512];
-    uintptr_t pathname = xdl_iterate_get_pathname_from_maps(info, buf, sizeof(buf), maps);
-    if (0 == pathname) return 0;  // ignore this ELF
+    // get base address
+    uintptr_t min_vaddr = xdl_iterate_get_min_vaddr(info);
+    if (UINTPTR_MAX == min_vaddr) return 0;  // ignore this ELF
+    uintptr_t base = (uintptr_t)(info->dlpi_addr + min_vaddr);
 
-    info->dlpi_name = (const char *)pathname;
+    char buf[1024];
+    if (0 != xdl_iterate_get_pathname_from_maps(base, buf, sizeof(buf), maps)) return 0;  // ignore this ELF
+
+    info->dlpi_name = (const char *)buf;
   }
 
   // callback
@@ -244,4 +242,11 @@ int xdl_iterate_phdr_impl(xdl_iterate_phdr_cb_t cb, void *cb_arg, int flags) {
 
   // iterate by dl_iterate_phdr()
   return xdl_iterate_by_linker(cb, cb_arg, flags);
+}
+
+int xdl_iterate_get_full_pathname(uintptr_t base, char *buf, size_t buf_len) {
+  FILE *maps = NULL;
+  int r = xdl_iterate_get_pathname_from_maps(base, buf, buf_len, &maps);
+  if (NULL != maps) fclose(maps);
+  return r;
 }

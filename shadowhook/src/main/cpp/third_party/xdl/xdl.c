@@ -46,6 +46,12 @@
 #include "xdl_lzma.h"
 #include "xdl_util.h"
 
+#ifndef __LP64__
+#define XDL_LIB_PATH "/system/lib"
+#else
+#define XDL_LIB_PATH "/system/lib64"
+#endif
+
 #define XDL_DYNSYM_IS_EXPORT_SYM(shndx) (SHN_UNDEF != (shndx))
 #define XDL_SYMTAB_IS_EXPORT_SYM(shndx) \
   (SHN_UNDEF != (shndx) && !((shndx) >= SHN_LORESERVE && (shndx) <= SHN_HIRESERVE))
@@ -282,6 +288,8 @@ end:
 
 // load from disk and memory
 static int xdl_symtab_load(xdl_t *self) {
+  if ('[' == self->pathname[0]) return -1;
+
   int r = -1;
   ElfW(Shdr) *shdrs = NULL;
   char *shstrtab = NULL;
@@ -298,7 +306,21 @@ static int xdl_symtab_load(xdl_t *self) {
   self->base = self->load_bias + vaddr_min;
 
   // open file
-  int file_fd = open(self->pathname, O_RDONLY | O_CLOEXEC);
+  int flags = O_RDONLY | O_CLOEXEC;
+  int file_fd;
+  if ('/' == self->pathname[0]) {
+    file_fd = open(self->pathname, flags);
+  } else {
+    char full_pathname[1024];
+    // try the fast method
+    snprintf(full_pathname, sizeof(full_pathname), "%s/%s", XDL_LIB_PATH, self->pathname);
+    file_fd = open(full_pathname, flags);
+    if (file_fd < 0) {
+      // try the slow method
+      if (0 != xdl_iterate_get_full_pathname(self->base, full_pathname, sizeof(full_pathname))) return -1;
+      file_fd = open(full_pathname, flags);
+    }
+  }
   if (file_fd < 0) return -1;
   struct stat st;
   if (0 != fstat(file_fd, &st)) goto end;
