@@ -50,10 +50,8 @@ android {
             doNotStrip "**/*.so"
         }
     }
-    if (!rootProject.ext.dependencyOnLocalLibrary) {
-        buildFeatures {
-            prefab true
-        }
+    buildFeatures {
+        prefab true
     }
 }
 
@@ -74,10 +72,10 @@ apply from: rootProject.file('gradle/sanitizer.gradle')
 
 if (rootProject.ext.dependencyOnLocalLibrary) {
     tasks.whenTaskAdded { task ->
-        if (task.name.startsWith('buildCMakeDebug[')) {
-            task.dependsOn(':shadowhook:mergeDebugNativeLibs')
-        } else if (task.name.startsWith('buildCMakeRelWithDebInfo[')) {
-            task.dependsOn(':shadowhook:stripReleaseDebugSymbols')
+        if (task.name == 'preDebugBuild') {
+            task.dependsOn(':shadowhook:prefabDebugConfigurePackage')
+        } else if (task.name == 'preReleaseBuild') {
+            task.dependsOn(':shadowhook:prefabReleaseConfigurePackage')
         }
     }
 }

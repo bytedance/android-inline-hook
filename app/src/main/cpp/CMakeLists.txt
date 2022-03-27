@@ -2,20 +2,7 @@ cmake_minimum_required(VERSION 3.18.1)
 project(app)
 enable_language(ASM)
 
-if(DEPENDENCY_ON_LOCAL_LIBRARY)
-    set(SHADOWHOOK_BASE ${CMAKE_CURRENT_SOURCE_DIR}/../../../../shadowhook)
-    if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-        set(SHADOWHOOK_LIB_BASE ${SHADOWHOOK_BASE}/build/intermediates/merged_native_libs/debug)
-    else()
-        set(SHADOWHOOK_LIB_BASE ${SHADOWHOOK_BASE}/build/intermediates/stripped_native_libs/release)
-    endif()
-    add_library(shadowhook::shadowhook SHARED IMPORTED)
-    set_target_properties(shadowhook::shadowhook PROPERTIES
-            IMPORTED_LOCATION ${SHADOWHOOK_LIB_BASE}/out/lib/${ANDROID_ABI}/libshadowhook.so
-            INTERFACE_INCLUDE_DIRECTORIES ${SHADOWHOOK_BASE}/src/main/cpp/include)
-else()
-    find_package(shadowhook REQUIRED CONFIG)
-endif()
+find_package(shadowhook REQUIRED CONFIG)
 
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
     set(ARCH "arm64")
