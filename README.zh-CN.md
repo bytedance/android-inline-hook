@@ -59,6 +59,12 @@ dependencies {
 }
 ```
 
+**注意**：shadowhook 使用 [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0)，它是从 [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0) 开始作为默认配置的。如果你使用的是 Android Gradle Plugin 7.1.0 之前的版本，请在 `gradle.properties` 中加入以下配置：
+
+```
+android.prefabVersion=2.0.0
+```
+
 ### 2. 在 CMakeLists.txt 或 Android.mk 中增加依赖
 
 > CMakeLists.txt
