@@ -56,3 +56,11 @@ android {
 
 apply from: rootProject.file('gradle/check.gradle')
 apply from: rootProject.file('gradle/publish.gradle')
+
+if (rootProject.ext.dependencyOnLocalLibrary) {
+    tasks.whenTaskAdded { task ->
+        if (task.name == 'bundleReleaseLocalLintAar') {
+            task.dependsOn('prefabReleaseConfigurePackage')
+        }
+    }
+}
