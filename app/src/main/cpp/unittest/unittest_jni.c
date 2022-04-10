@@ -31,9 +31,6 @@
 #include "shadowhook.h"
 #include "unittest.h"
 
-#define HACKER_JNI_VERSION    JNI_VERSION_1_6
-#define HACKER_JNI_CLASS_NAME "com/bytedance/shadowhook/sample/NativeHandler"
-
 static int unittest_jni_hook_sym_addr(JNIEnv *env, jobject thiz, jint api_level) {
   (void)env;
   (void)thiz;
@@ -82,15 +79,15 @@ static void unittest_jni_dump_records(JNIEnv *env, jobject thiz, jstring pathnam
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   (void)reserved;
-
-  if (NULL == vm) return JNI_ERR;
+  jint jni_version = JNI_VERSION_1_6;
 
   JNIEnv *env;
-  if (JNI_OK != (*vm)->GetEnv(vm, (void **)&env, HACKER_JNI_VERSION)) return JNI_ERR;
+  if (NULL == vm) return JNI_ERR;
+  if (JNI_OK != (*vm)->GetEnv(vm, (void **)&env, jni_version)) return JNI_ERR;
   if (NULL == env || NULL == *env) return JNI_ERR;
 
-  jclass cls;
-  if (NULL == (cls = (*env)->FindClass(env, HACKER_JNI_CLASS_NAME))) return JNI_ERR;
+  jclass cls = (*env)->FindClass(env, "com/bytedance/shadowhook/sample/NativeHandler");
+  if (NULL == cls) return JNI_ERR;
 
   JNINativeMethod m[] = {{"nativeHookSymAddr", "(I)I", (void *)unittest_jni_hook_sym_addr},
                          {"nativeHookSymName", "(I)I", (void *)unittest_jni_hook_sym_name},
@@ -99,5 +96,5 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                          {"nativeDumpRecords", "(Ljava/lang/String;)V", (void *)unittest_jni_dump_records}};
   if (0 != (*env)->RegisterNatives(env, cls, m, sizeof(m) / sizeof(m[0]))) return JNI_ERR;
 
-  return HACKER_JNI_VERSION;
+  return jni_version;
 }
