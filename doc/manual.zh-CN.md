@@ -5,7 +5,7 @@
 
 # 介绍
 
-shadowhook 是一个针对 Android app 的 inline hook 库。
+**shadowhook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
 
 
 # 特征
@@ -17,7 +17,7 @@ shadowhook 是一个针对 Android app 的 inline hook 库。
 * 自动完成“新加载动态库”的 hook（仅限“库名 + 函数名”方式），hook 完成后调用可选的回调函数。
 * 可对同一个 hook 点并发执行多个 hook 和 unhook，彼此互不干扰（仅限 shared 模式）。
 * 自动避免代理函数之间可能形成的递归调用和环形调用（仅限 shared 模式）。
-* 代理函数中支持以正常的方式回溯调用栈。
+* 代理函数中支持以正常的方式（CFI，EH，FP）回溯调用栈。
 * 集成符号地址查找功能。
 * 使用 MIT 许可证授权。
 

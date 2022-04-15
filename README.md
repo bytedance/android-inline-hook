@@ -1,4 +1,4 @@
-# android-inline-hook
+# shadowhook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
 ![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
@@ -7,9 +7,7 @@
 
 [README 中文版](README.zh-CN.md)
 
-**shadowhook** is an inline hook library for Android apps.
-
-> shadowhook is a module of "the android-inline-hook project".
+**shadowhook** is an Android inline hook library which supports thumb, arm32 and arm64.
 
 
 ## Features
@@ -21,7 +19,7 @@
 * Automatically complete the hook of "newly loaded dynamic library" (only "library name + function name"), and call the optional callback function after the hook is completed.
 * Multiple hooks and unhooks can be executed concurrently on the same hook point without interfering with each other (only in shared mode).
 * Automatically avoid possible recursive calls and circular calls between proxy functions (only in shared mode).
-* The proxy function supports unwinding backtrace in a normal way.
+* The proxy function supports unwinding backtrace in a normal way (CFI, EH, FP).
 * Integrated symbol address search function.
 * MIT licensed.
 
