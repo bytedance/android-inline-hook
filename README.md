@@ -1,4 +1,4 @@
-# shadowhook
+# ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
 ![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
@@ -7,7 +7,9 @@
 
 [README 中文版](README.zh-CN.md)
 
-**shadowhook** is an Android inline hook library which supports thumb, arm32 and arm64.
+**ShadowHook** is an Android inline hook library which supports thumb, arm32 and arm64.
+
+If you need an Android PLT hook library, please move to [ByteHook](https://github.com/bytedance/bhook).
 
 
 ## Features
@@ -26,7 +28,7 @@
 
 ## Documentation
 
-[shadowhook Manual](doc/manual.md)
+[ShadowHook Manual](doc/manual.md)
 
 
 ## Quick Start
@@ -35,7 +37,7 @@ You can refer to the sample app in [app module](app), or refer to the hook/unhoo
 
 ### 1. Add dependency in build.gradle
 
-shadowhook is published on [Maven Central](https://search.maven.org/), and uses [Prefab](https://google.github.io/prefab/) package format for [native dependencies](https://developer.android.com/studio/build/native-dependencies), which is supported by [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
+ShadowHook is published on [Maven Central](https://search.maven.org/), and uses [Prefab](https://google.github.io/prefab/) package format for [native dependencies](https://developer.android.com/studio/build/native-dependencies), which is supported by [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
 
 ```Gradle
 allprojects {
@@ -57,7 +59,7 @@ dependencies {
 }
 ```
 
-**Note**: shadowhook uses the [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is configured by default since [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you are using Android Gradle Plugin earlier than 7.1.0, please add the following configuration to `gradle.properties`:
+**Note**: ShadowHook uses the [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is configured by default since [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you are using Android Gradle Plugin earlier than 7.1.0, please add the following configuration to `gradle.properties`:
 
 ```
 android.prefabVersion=2.0.0
@@ -100,7 +102,7 @@ android {
 
 ### 4. Add packaging options
 
-If you are using shadowhook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
+If you are using ShadowHook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
 
 ```Gradle
 android {
@@ -110,7 +112,7 @@ android {
 }
 ```
 
-On the other hand, if you are using shadowhook in an APP project, you may need to add some options to deal with conflicts caused by duplicate libshadowhook.so file.
+On the other hand, if you are using ShadowHook in an APP project, you may need to add some options to deal with conflicts caused by duplicate libshadowhook.so file.
 
 ```Gradle
 android {
@@ -122,7 +124,7 @@ android {
 
 ### 5. Initialize
 
-shadowhook supports two modes (shared mode and unique mode). The proxy function in the two modes is written slightly differently. You can try the unique mode first. 
+ShadowHook supports two modes (shared mode and unique mode). The proxy function in the two modes is written slightly differently. You can try the unique mode first. 
 
 ```Java
 import com.bytedance.shadowhook.ShadowHook;
@@ -228,9 +230,9 @@ void do_unhook()
 
 ## License
 
-shadowhook is licensed by [MIT License](LICENSE).
+ShadowHook is licensed by [MIT License](LICENSE).
 
-shadowhook uses the following third-party source code or libraries:
+ShadowHook uses the following third-party source code or libraries:
 
 * [queue.h](shadowhook/src/main/cpp/third_party/bsd/queue.h)  
 BSD 3-Clause License  

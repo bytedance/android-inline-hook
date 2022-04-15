@@ -1,11 +1,13 @@
-# **shadowhook 手册**
+# **ShadowHook 手册**
 
-[shadowhook Manual - English version](manual.md)
+[ShadowHook Manual - English version](manual.md)
 
 
 # 介绍
 
-**shadowhook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
+**ShadowHook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
+
+如果你需要的是 Android PLT hook 库，请移步到 [ByteHook](https://github.com/bytedance/bhook)。
 
 
 # 特征
@@ -26,7 +28,7 @@
 
 ## 在 build.gradle 中增加依赖
 
-shadowhook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
+ShadowHook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，ShadowHook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
 
 ```Gradle
 allprojects {
@@ -50,7 +52,7 @@ dependencies {
 
 `x.y.z` 请替换成版本号，建议使用最新的 [release](https://github.com/bytedance/android-inline-hook/releases) 版本。
 
-**注意**：shadowhook 使用 [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0)，它是从 [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0) 开始作为默认配置的。如果你使用的是 Android Gradle Plugin 7.1.0 之前的版本，请在 `gradle.properties` 中加入以下配置：
+**注意**：ShadowHook 使用 [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0)，它是从 [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0) 开始作为默认配置的。如果你使用的是 Android Gradle Plugin 7.1.0 之前的版本，请在 `gradle.properties` 中加入以下配置：
 
 ```
 android.prefabVersion=2.0.0
@@ -93,7 +95,7 @@ android {
 
 ## 增加打包选项
 
-如果你是在一个 SDK 工程里使用 shadowhook，你可能需要避免把 libshadowhook.so 打包到你的 AAR 里，以免 app 工程打包时遇到重复的 libshadowhook.so 文件。
+如果你是在一个 SDK 工程里使用 ShadowHook，你可能需要避免把 libshadowhook.so 打包到你的 AAR 里，以免 app 工程打包时遇到重复的 libshadowhook.so 文件。
 
 ```Gradle
 android {
@@ -103,7 +105,7 @@ android {
 }
 ```
 
-另一方面, 如果你是在一个 APP 工程里使用 shadowhook，你可以需要增加一些选项，用来处理重复的 libshadowhook.so 文件引起的冲突。
+另一方面, 如果你是在一个 APP 工程里使用 ShadowHook，你可以需要增加一些选项，用来处理重复的 libshadowhook.so 文件引起的冲突。
 
 ```Gradle
 android {
@@ -191,7 +193,7 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
 
 # 查找符号地址
 
-* shadowhook 的 hook API 支持通过“函数地址”或“库名 + 函数名”指定 hook 位置。
+* ShadowHook 的 hook API 支持通过“函数地址”或“库名 + 函数名”指定 hook 位置。
 * NDK 暴露的 `.dynsym` 中的函数地址可以借助 linker 来获取，但是 `.symtab` 和 `.symtab in .gnu_debugdata` 中的函数地址需要通过其他手段来获取。
 
 ```C
@@ -215,7 +217,7 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name);
 * 支持通过“函数地址”或“库名 + 函数名”指定 hook 位置。
 * 自动完成“新加载so库”的 hook（仅限“库名 + 函数名”方式），hook 完成后调用可选的回调函数。
 * 只支持针对函数整体的 hook，不支持对函数中间位置的 hook。
-* 如果要 hook 的函数不在 ELF 的符号表（`.dynsym` 或 `.symtab` 或 `.symtab in .gnu_debugdata`）中，则肯定无法 hook 成功。因为目前shadowhook 通过解析 ELF 的符号表来确定函数的长度，防止出现“由于函数长度太短，导致 hook 操作覆盖了后续其他函数的指令”的问题。对于这个问题的设计思考是：shadowhook 的目标不是用于线下逆向分析，而是用于线上，要在线上稳定的找到需要 hook 的函数位置，目前最可靠的方式还是通过符号来定位函数的起始位置。另外，也是基于对这点的考虑，shadowhook 放弃了“hook 函数中任意位置的功能”，只支持“hook 函数的头部（即对函数整体进行hook）”。
+* 如果要 hook 的函数不在 ELF 的符号表（`.dynsym` 或 `.symtab` 或 `.symtab in .gnu_debugdata`）中，则肯定无法 hook 成功。因为目前shadowhook 通过解析 ELF 的符号表来确定函数的长度，防止出现“由于函数长度太短，导致 hook 操作覆盖了后续其他函数的指令”的问题。对于这个问题的设计思考是：ShadowHook 的目标不是用于线下逆向分析，而是用于线上，要在线上稳定的找到需要 hook 的函数位置，目前最可靠的方式还是通过符号来定位函数的起始位置。另外，也是基于对这点的考虑，ShadowHook 放弃了“hook 函数中任意位置的功能”，只支持“hook 函数的头部（即对函数整体进行hook）”。
 
 ## 1. 通过“函数地址”执行 hook
 
@@ -261,14 +263,14 @@ if(stub == NULL)
 void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr);
 ```
 
-* 这种方式可以 hook “当前已加载到进程中的动态库”，也可以 hook “还没有加载到进程中的动态库”（如果 hook 时动态库还未加载，shadowhook 内部会记录当前的 hook “诉求”，后续一旦目标动态库被加载到内存中，将立刻执行 hook 操作）。
-* shadowhook 可以 hook ELF 中 `.dynsym` / `.symtab` / `.symtab in .gnu_debugdata` 中的符号，`shadowhook_hook_sym_name` 会完成符号地址查找的工作。
+* 这种方式可以 hook “当前已加载到进程中的动态库”，也可以 hook “还没有加载到进程中的动态库”（如果 hook 时动态库还未加载，ShadowHook 内部会记录当前的 hook “诉求”，后续一旦目标动态库被加载到内存中，将立刻执行 hook 操作）。
+* ShadowHook 可以 hook ELF 中 `.dynsym` / `.symtab` / `.symtab in .gnu_debugdata` 中的符号，`shadowhook_hook_sym_name` 会完成符号地址查找的工作。
 * 可以使用 `readelf` 查看 `.dynsym` / `.symtab` 中的符号。
 * 可以使用 `dd` + `xz` + `readelf` 查看 `.symtab in .gnu_debugdata` 中的符号。
 * 如果需要 hook “多个来自同一个动态库的符号”，建议使用 `shadowhook_dl*` API 来批量完成符号地址查找，这样可以加快 hook 流程中符号查找的速度。
 
 ### 参数
-* `lib_name`（必须指定）：符号所在 ELF 的 basename 或 pathname。对于在进程中确认唯一的动态库，可以只传 basename，例如：`libart.so`。对于不唯一的动态库，需要根据安卓版本和 arch 自己处理兼容性，例如：`/system/lib64/libbinderthreadstate.so` 和 `/system/lib64/vndk-sp-29/libbinderthreadstate.so`。否则，shadowhook 只会 hook 进程中第一个匹配到 basename 的动态库。
+* `lib_name`（必须指定）：符号所在 ELF 的 basename 或 pathname。对于在进程中确认唯一的动态库，可以只传 basename，例如：`libart.so`。对于不唯一的动态库，需要根据安卓版本和 arch 自己处理兼容性，例如：`/system/lib64/libbinderthreadstate.so` 和 `/system/lib64/vndk-sp-29/libbinderthreadstate.so`。否则，ShadowHook 只会 hook 进程中第一个匹配到 basename 的动态库。
 * `sym_name`（必须指定）：符号名。
 * `new_addr`（必须指定）：新函数（proxy 函数）的绝对地址。
 * `orig_addr`（不需要的话可传 `NULL`）：返回原函数地址。
@@ -276,7 +278,7 @@ void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void 
 ### 返回值
 
 * 非 `NULL`（errno == 0）：hook 成功。返回值是个 stub，可保存返回值，后续用于 unhook。
-* 非 `NULL`（errno == 1）：由于目标动态库还没有加载，导致 hook 无法执行。shadowhook 内部会记录当前的 hook “诉求”，后续一旦目标动态库被加载到内存中，将立刻执行 hook 操作。返回值是个 stub，可保存返回值，后续用于 unhook。
+* 非 `NULL`（errno == 1）：由于目标动态库还没有加载，导致 hook 无法执行。ShadowHook 内部会记录当前的 hook “诉求”，后续一旦目标动态库被加载到内存中，将立刻执行 hook 操作。返回值是个 stub，可保存返回值，后续用于 unhook。
 * `NULL`：hook 失败。可调用 `shadowhook_get_errno` 获取 errno，可继续调用 `shadowhook_to_errmsg` 获取 error message。
 
 ### 举例
@@ -398,13 +400,13 @@ shared 模式中。在代理函数内部，请通过 `SHADOWHOOK_CALL_PREV` 宏�
 #define SHADOWHOOK_STACK_SCOPE() ...
 ```
 
-shadowhook 的代理函数管理机制完成了一些事情：
+ShadowHook 的代理函数管理机制完成了一些事情：
 
 * 可对同一个 hook 点多次 hook 和 unhook，彼此互不干扰。
 * 自动避免代理函数之间可能形成的递归调用和环形调用（比如：SDK1 的 `open_proxy` 中调用了 `read`，SDK2 的 `read_proxy` 中又调用了 `open`）。
 * 代理函数中可以用常规的方式回溯调用栈。
 
-为了同时做到上面这些，需要在代理函数中做一些额外的事情，即“执行 shadowhook 内部的 stack 清理”，这需要你在 proxy 函数中调用 `SHADOWHOOK_POP_STACK` 宏或 `SHADOWHOOK_STACK_SCOPE` 宏来完成（二选一）。注意：即使你在代理函数中什么也不做，也需要“执行 shadowhook 内部的 stack 清理”。
+为了同时做到上面这些，需要在代理函数中做一些额外的事情，即“执行 ShadowHook 内部的 stack 清理”，这需要你在 proxy 函数中调用 `SHADOWHOOK_POP_STACK` 宏或 `SHADOWHOOK_STACK_SCOPE` 宏来完成（二选一）。注意：即使你在代理函数中什么也不做，也需要“执行 ShadowHook 内部的 stack 清理”。
 
 * `SHADOWHOOK_POP_STACK` 宏：适用于 C 和 C++ 源文件。需要确保在代理函数返回前调用。
 * `SHADOWHOOK_STACK_SCOPE` 宏：适用于 C++ 源文件。在代理函数开头调用一次即可。
@@ -434,7 +436,7 @@ shadowhook 的代理函数管理机制完成了一些事情：
 #define SHADOWHOOK_DISALLOW_REENTRANT() ...
 ```
 
-在 shared 模式中，默认是不允许 proxy 函数被重入的，因为重入可能发生在多个使用 shadowhook 的 SDK 之间，最终形成了一个无限循环的调用环（比如：SDK1 的 `open_proxy` 中调用了 `read`，SDK2 的 `read_proxy` 中又调用了 `open`）。
+在 shared 模式中，默认是不允许 proxy 函数被重入的，因为重入可能发生在多个使用 ShadowHook 的 SDK 之间，最终形成了一个无限循环的调用环（比如：SDK1 的 `open_proxy` 中调用了 `read`，SDK2 的 `read_proxy` 中又调用了 `open`）。
 
 但是，某些特殊使用场景中，由业务逻辑控制的重入可能是需要的，他们并不会形成“无限的”调用环，而是会在某些业务条件满足时终止。如果你确认你的使用场景是这种情况，请在 proxy 函数中调用 `SHADOWHOOK_ALLOW_REENTRANT` 以允许重入，当 proxy 函数的逻辑运行到“不再需要允许重入的部分”时，可以调用 `SHADOWHOOK_DISALLOW_REENTRANT`。
 
@@ -544,7 +546,7 @@ void test(void)
 
 `test_func_1` 和 `test_func_2` 看似会形成一个无限循环的环形调用，但是当 `a < b` 时，循环会终止，所以并不会真的死循环。（`test` 函数中调用 `test_func_1` 的参数是 `a = 10` 和 `b = 5`，每次 `test_func_2` 中将 `a` 递减 `1`）
 
-默认情况下 shadowhook 会阻止 proxy 函数的重入，因为重入很容易导致 proxy 函数之间形成死循环。但如果这种 proxy 函数的重入正是你所需要的，请参考下面的例子用 `SHADOWHOOK_ALLOW_REENTRANT` 宏和 `SHADOWHOOK_DISALLOW_REENTRANT` 宏来控制 proxy 函数中某个代码区域的“可重入性”：
+默认情况下 ShadowHook 会阻止 proxy 函数的重入，因为重入很容易导致 proxy 函数之间形成死循环。但如果这种 proxy 函数的重入正是你所需要的，请参考下面的例子用 `SHADOWHOOK_ALLOW_REENTRANT` 宏和 `SHADOWHOOK_DISALLOW_REENTRANT` 宏来控制 proxy 函数中某个代码区域的“可重入性”：
 
 下面的代码hook `test_func_1`，其中使用 `SHADOWHOOK_ALLOW_REENTRANT` 宏来允许重入。
 
@@ -566,7 +568,7 @@ int test_func_1_proxy(int a, int b)
     // 调用原函数
     int result = SHADOWHOOK_CALL_PREV(test_func_1_proxy, sz);
     
-    // 下面要继续加点业务逻辑，想恢复 shadowhook 的“防止 proxy 函数被重入”的保护功能。
+    // 下面要继续加点业务逻辑，想恢复 ShadowHook 的“防止 proxy 函数被重入”的保护功能。
     SHADOWHOOK_DISALLOW_REENTRANT();
     
     // 继续加点业务逻辑
@@ -656,7 +658,7 @@ const char *shadowhook_to_errmsg(int error_number);
 
 # 操作记录
 
-* shadowhook 会在内存中记录 hook / unhook 的操作信息。
+* ShadowHook 会在内存中记录 hook / unhook 的操作信息。
 * 可以在 java 层或 native 层获取这些操作记录，它们以字符串形式返回，以行为单位，以逗号分隔信息项。
 * 具体可以返回的信息项和顺序如下：
 

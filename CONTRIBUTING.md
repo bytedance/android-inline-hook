@@ -1,6 +1,6 @@
-# Contributing to shadowhook
+# Contributing to ShadowHook
 
-Welcome to the shadowhook project. Read on to learn more about our development process and how to propose bug fixes and improvements.
+Welcome to the ShadowHook project. Read on to learn more about our development process and how to propose bug fixes and improvements.
 
 ## Issues
 
@@ -46,4 +46,4 @@ Please make sure the following is done when submitting a pull request:
 
 ## License
 
-By contributing to shadowhook, you agree that your contributions will be licensed under its [MIT LICENSE](LICENSE).
+By contributing to ShadowHook, you agree that your contributions will be licensed under its [MIT LICENSE](LICENSE).

@@ -25,7 +25,7 @@ ext {
     POM_VERSION_NAME = "1.0.3"
 
     POM_NAME = "shadowhook"
-    POM_DESCRIPTION = "shadowhook is an inline hook library for Android apps."
+    POM_DESCRIPTION = "ShadowHook is an Android inline hook library which supports thumb, arm32 and arm64."
     POM_URL = "https://github.com/bytedance/android-inline-hook"
     POM_INCEPTION_YEAR = "2021"
     POM_PACKAGING = "aar"

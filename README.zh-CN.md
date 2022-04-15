@@ -1,4 +1,4 @@
-# shadowhook
+# ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
 ![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
@@ -7,7 +7,9 @@
 
 [README English Version](README.md)
 
-**shadowhook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
+**ShadowHook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
+
+如果你需要的是 Android PLT hook 库，请移步到 [ByteHook](https://github.com/bytedance/bhook)。
 
 
 ## 特征
@@ -26,7 +28,7 @@
 
 ## 文档
 
-[shadowhook 手册](doc/manual.zh-CN.md)
+[ShadowHook 手册](doc/manual.zh-CN.md)
 
 
 ## 快速开始
@@ -35,7 +37,7 @@
 
 ### 1. 在 build.gradle 中增加依赖
 
-shadowhook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
+ShadowHook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，ShadowHook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
 
 ```Gradle
 allprojects {
@@ -57,7 +59,7 @@ dependencies {
 }
 ```
 
-**注意**：shadowhook 使用 [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0)，它是从 [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0) 开始作为默认配置的。如果你使用的是 Android Gradle Plugin 7.1.0 之前的版本，请在 `gradle.properties` 中加入以下配置：
+**注意**：ShadowHook 使用 [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0)，它是从 [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0) 开始作为默认配置的。如果你使用的是 Android Gradle Plugin 7.1.0 之前的版本，请在 `gradle.properties` 中加入以下配置：
 
 ```
 android.prefabVersion=2.0.0
@@ -100,7 +102,7 @@ android {
 
 ### 4. 增加打包选项
 
-如果你是在一个 SDK 工程里使用 shadowhook，你可能需要避免把 libshadowhook.so 打包到你的 AAR 里，以免 app 工程打包时遇到重复的 libshadowhook.so 文件。
+如果你是在一个 SDK 工程里使用 ShadowHook，你可能需要避免把 libshadowhook.so 打包到你的 AAR 里，以免 app 工程打包时遇到重复的 libshadowhook.so 文件。
 
 ```Gradle
 android {
@@ -110,7 +112,7 @@ android {
 }
 ```
 
-另一方面, 如果你是在一个 APP 工程里使用 shadowhook，你可以需要增加一些选项，用来处理重复的 libshadowhook.so 文件引起的冲突。
+另一方面, 如果你是在一个 APP 工程里使用 ShadowHook，你可以需要增加一些选项，用来处理重复的 libshadowhook.so 文件引起的冲突。
 
 ```Gradle
 android {
@@ -122,7 +124,7 @@ android {
 
 ### 5. 初始化
 
-shadowhook 支持两种模式（shared 模式和 unique 模式），两种模式下的 proxy 函数写法稍有不同，你可以先尝试一下 unique 模式。
+ShadowHook 支持两种模式（shared 模式和 unique 模式），两种模式下的 proxy 函数写法稍有不同，你可以先尝试一下 unique 模式。
 
 ```Java
 import com.bytedance.shadowhook.ShadowHook;
@@ -228,9 +230,9 @@ void do_unhook()
 
 ## 许可证
 
-shadowhook 使用 [MIT 许可证](LICENSE) 授权。
+ShadowHook 使用 [MIT 许可证](LICENSE) 授权。
 
-shadowhook 使用了以下第三方源码或库：
+ShadowHook 使用了以下第三方源码或库：
 
 * [queue.h](shadowhook/src/main/cpp/third_party/bsd/queue.h)  
 BSD 3-Clause License  

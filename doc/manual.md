@@ -1,11 +1,13 @@
-# **shadowhook Manual**
+# **ShadowHook Manual**
 
-[shadowhook 手册 - 中文版](manual.zh-CN.md)
+[ShadowHook 手册 - 中文版](manual.zh-CN.md)
 
 
 # Introduction
 
-**shadowhook** is an Android inline hook library which supports thumb, arm32 and arm64.
+**ShadowHook** is an Android inline hook library which supports thumb, arm32 and arm64.
+
+If you need an Android PLT hook library, please move to [ByteHook](https://github.com/bytedance/bhook).
 
 
 # Features
@@ -26,7 +28,7 @@
 
 ## Add dependency in build.gradle
 
-shadowhook is published on [Maven Central](https://search.maven.org/), and uses [Prefab](https://google.github.io/prefab/) package format for [native dependencies](https://developer.android.com/studio/build/native-dependencies), which is supported by [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
+ShadowHook is published on [Maven Central](https://search.maven.org/), and uses [Prefab](https://google.github.io/prefab/) package format for [native dependencies](https://developer.android.com/studio/build/native-dependencies), which is supported by [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
 
 ```Gradle
 allprojects {
@@ -50,7 +52,7 @@ dependencies {
 
 Please replace `x.y.z` with the version number. It is recommended to use the latest [release](https://github.com/bytedance/android-inline-hook/releases) version.
 
-**Note**: shadowhook uses the [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is configured by default since [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you are using Android Gradle Plugin earlier than 7.1.0, please add the following configuration to `gradle.properties`:
+**Note**: ShadowHook uses the [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is configured by default since [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you are using Android Gradle Plugin earlier than 7.1.0, please add the following configuration to `gradle.properties`:
 
 ```
 android.prefabVersion=2.0.0
@@ -93,7 +95,7 @@ android {
 
 ## Add packaging options
 
-If you are using shadowhook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
+If you are using ShadowHook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
 
 ```Gradle
 android {
@@ -103,7 +105,7 @@ android {
 }
 ```
 
-On the other hand, if you are using shadowhook in an APP project, you may need to add some options to deal with conflicts caused by duplicate libshadowhook.so file.
+On the other hand, if you are using ShadowHook in an APP project, you may need to add some options to deal with conflicts caused by duplicate libshadowhook.so file.
 
 ```Gradle
 android {
@@ -116,7 +118,7 @@ android {
 
 # Initialize
 
-* **shadowhook can be initialized at the java layer or the native layer, and you can choose one of the two.**
+* **ShadowHook can be initialized at the java layer or the native layer, and you can choose one of the two.**
 * The java layer initialization logic actually only does two things: `System.loadLibrary`; calling the `init` function of the native layer.
 * The initialization can be executed multiple times concurrently, but only the first time actually takes effect, and subsequent initialization calls will directly return the return value of the first initialization.
 
@@ -125,7 +127,7 @@ android {
 ### Mode
 
 * `shared` mode (default): Multiple hooks and unhooks can be executed concurrently on the same hook point without interfering with each other. Automatically avoid recursive and circular calls that may form between proxy functions. The shared mode is recommended for complex institutions or organizations.
-* `unique` mode: The same hook point can only be hooked once (and can be hooked again after unhook). You need to deal with recursive calls and circular calls that may be formed between proxy functions. This mode can be used for personal or small apps, or in some debugging scenarios (for example, if you want to skip the proxy management mechanism of shadowhook, and debug and analyze the simple inlinehook process).
+* `unique` mode: The same hook point can only be hooked once (and can be hooked again after unhook). You need to deal with recursive calls and circular calls that may be formed between proxy functions. This mode can be used for personal or small apps, or in some debugging scenarios (for example, if you want to skip the proxy management mechanism of ShadowHook, and debug and analyze the simple inlinehook process).
 
 ### Debug Log
 
@@ -191,7 +193,7 @@ Returns `0` for success, non-`0` for failure (non-`0` is an error code).
 
 # Find symbol address
 
-* The hook API of shadowhook supports specifying the hook location by "function address" or "library name + function name".
+* The hook API of ShadowHook supports specifying the hook location by "function address" or "library name + function name".
 * The function addresses in `.dynsym` exposed by NDK can be obtained through linker, but the function addresses in `.symtab` and `.symtab in .gnu_debugdata` need to be obtained by other means.
 
 ```C
@@ -215,7 +217,7 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name);
 * Supports specifying the hook location by "function address" or "library name + function name".
 * Automatically completes the hook of "newly loaded so library" (only "library name + function name" method), and calls an optional callback function after the hook is completed.
 * Only hooks for the whole function are supported, and hooks for the middle of the function are not supported.
-* If the function to be hooked is not in the ELF's symbol table (`.dynsym` or `.symtab` or `.symtab in .gnu_debugdata`), the hook will definitely not succeed. Because currently shadowhook determines the length of the function by parsing the ELF symbol table, preventing the problem of "because the length of the function is too short, the hook operation covers the instructions of other subsequent functions". The design thinking on this problem is: the goal of shadowhook is not for offline reverse analysis, but for online. To stably find the function location that needs hook online, the most reliable way is to locate the function through symbol starting point. In addition, based on this consideration, shadowhook abandons "the ability of  hooking any position in a function", and only supports "hooking the head of a function (that is, hooking the function as a whole)".
+* If the function to be hooked is not in the ELF's symbol table (`.dynsym` or `.symtab` or `.symtab in .gnu_debugdata`), the hook will definitely not succeed. Because currently ShadowHook determines the length of the function by parsing the ELF symbol table, preventing the problem of "because the length of the function is too short, the hook operation covers the instructions of other subsequent functions". The design thinking on this problem is: the goal of ShadowHook is not for offline reverse analysis, but for online. To stably find the function location that needs hook online, the most reliable way is to locate the function through symbol starting point. In addition, based on this consideration, ShadowHook abandons "the ability of  hooking any position in a function", and only supports "hooking the head of a function (that is, hooking the function as a whole)".
 
 ## 1. Execute hook by "function address"
 
@@ -261,15 +263,15 @@ In this example, `sym_addr` is specified by the linker when loading the current 
 void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr);
 ```
 
-* In this way, you can hook "the dynamic library that is currently loaded into the process", or you can hook "the dynamic library that has not been loaded into the process" (if the dynamic library has not been loaded at the time of hooking, shadowhook will internally record the current hook "demand", and the hook operation will be executed immediately once the target dynamic library is loaded into memory).
-* shadowhook can hook symbols in `.dynsym` / `.symtab` / `.symtab in .gnu_debugdata` in ELF, and `shadowhook_hook_sym_name` will complete the work of symbol address lookup.
+* In this way, you can hook "the dynamic library that is currently loaded into the process", or you can hook "the dynamic library that has not been loaded into the process" (if the dynamic library has not been loaded at the time of hooking, ShadowHook will internally record the current hook "demand", and the hook operation will be executed immediately once the target dynamic library is loaded into memory).
+* ShadowHook can hook symbols in `.dynsym` / `.symtab` / `.symtab in .gnu_debugdata` in ELF, and `shadowhook_hook_sym_name` will complete the work of symbol address lookup.
 * Symbols in `.dynsym` / `.symtab` can be viewed with `readelf`.
 * Symbols in `.symtab in .gnu_debugdata` can be viewed with `dd` + `xz` + `readelf`.
 * If you need to hook "multiple symbols from the same dynamic library", it is recommended to use the `shadowhook_dl*` API to complete the symbol address lookup in batches, which can speed up the symbol lookup in the hook process.
 
 ### Parameters
 
-* `lib_name` (must be specified): The basename or pathname of the ELF where the symbol is located. For the only dynamic library identified in the process, you can only pass the basename, for example: `libart.so`. For non-unique dynamic libraries, you need to handle compatibility according to Android version and arch, for example: `/system/lib64/libbinderthreadstate.so` and `/system/lib64/vndk-sp-29/libbinderthreadstate.so`. Otherwise, shadowhook will only hook the first dynamic library that matches basename in the process.
+* `lib_name` (must be specified): The basename or pathname of the ELF where the symbol is located. For the only dynamic library identified in the process, you can only pass the basename, for example: `libart.so`. For non-unique dynamic libraries, you need to handle compatibility according to Android version and arch, for example: `/system/lib64/libbinderthreadstate.so` and `/system/lib64/vndk-sp-29/libbinderthreadstate.so`. Otherwise, ShadowHook will only hook the first dynamic library that matches basename in the process.
 * `sym_name` (must be specified): Symbol name.
 * `new_addr` (must be specified): The absolute address of the new function (proxy function).
 * `orig_addr` (you can pass `NULL` if not needed): Return the address of the original function.
@@ -277,7 +279,7 @@ void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void 
 ### Return Value
 
 * Not `NULL` (errno == 0): the hook succeeded. The return value is a stub, you can save the return value for subsequent use in unhook.
-* Not `NULL` (errno == 1): The hook cannot be executed because the target dynamic library has not been loaded. shadowhook will record the current hook "demand" internally, and once the target dynamic library is loaded into the memory, the hook operation will be executed immediately. The return value is a stub, you can save the return value for subsequent use in unhook.
+* Not `NULL` (errno == 1): The hook cannot be executed because the target dynamic library has not been loaded. ShadowHook will record the current hook "demand" internally, and once the target dynamic library is loaded into the memory, the hook operation will be executed immediately. The return value is a stub, you can save the return value for subsequent use in unhook.
 * `NULL`: The hook failed. You can call `shadowhook_get_errno` to get the errno, and you can continue to call `shadowhook_to_errmsg` to get the error message.
 
 ### Example
@@ -400,13 +402,13 @@ In shared mode. Inside the proxy function, use the `SHADOWHOOK_CALL_PREV` macro 
 #define SHADOWHOOK_STACK_SCOPE() ...
 ```
 
-shadowhook's proxy function management mechanism accomplishes a few things:
+ShadowHook's proxy function management mechanism accomplishes a few things:
 
 * You can hook and unhook the same hook point multiple times without interfering with each other.
 * Automatically avoid recursive calls and circular calls that may be formed between proxy functions (for example: `read` is called in `open_proxy` of SDK1, and `open` is called in `read_proxy` of SDK2).
 * The call stack can be unwind in the normal way in the proxy function.
 
-In order to do all of the above at the same time, you need to do something extra in the proxy function, namely "perform the stack cleanup inside the shadowhook", which requires you to call the `SHADOWHOOK_POP_STACK` macro or `SHADOWHOOK_STACK_SCOPE` macro in the proxy function to complete (two options one). Note: Even if you do nothing in the proxy function, you need to "perform stack cleanup inside shadowhook".
+In order to do all of the above at the same time, you need to do something extra in the proxy function, namely "perform the stack cleanup inside the ShadowHook", which requires you to call the `SHADOWHOOK_POP_STACK` macro or `SHADOWHOOK_STACK_SCOPE` macro in the proxy function to complete (two options one). Note: Even if you do nothing in the proxy function, you need to "perform stack cleanup inside shadowhook".
 
 * `SHADOWHOOK_POP_STACK` macro: for C and C++ source files. Need to make sure to call before the proxy function returns.
 * `SHADOWHOOK_STACK_SCOPE` macro: for C++ source files. Call it once at the beginning of the proxy function.
@@ -436,7 +438,7 @@ In the proxy function, the original LR needs to be obtained through the `SHADOWH
 #define SHADOWHOOK_DISALLOW_REENTRANT() ...
 ```
 
-In shared mode, proxy functions are not allowed to be reentrant by default, because reentrancy may occur between multiple SDKs using shadowhook, eventually forming an infinite loop of calls (for example, `open_proxy` in SDK1 call `read`, and `read_proxy` in SDK2 call `open`).
+In shared mode, proxy functions are not allowed to be reentrant by default, because reentrancy may occur between multiple SDKs using ShadowHook, eventually forming an infinite loop of calls (for example, `open_proxy` in SDK1 call `read`, and `read_proxy` in SDK2 call `open`).
 
 However, in some special usage scenarios, reentrancy controlled by business logic may be required, they will not form an "infinite" call loop, but will terminate when certain business conditions are met. If you confirm that this is the case for your use case, please call `SHADOWHOOK_ALLOW_REENTRANT` in the proxy function to allow reentrancy, and when the logic of the proxy function runs to "no longer need to allow reentrancy", you can call `SHADOWHOOK_DISALLOW_REENTRANT`.
 
@@ -546,7 +548,7 @@ void test(void)
 
 `test_func_1` and `test_func_2` seem to form an infinite loop, but when `a < b`, the loop will terminate, so it is not really an infinite loop. (The arguments to call `test_func_1` in the `test` function are `a = 10` and `b = 5`, decrement `a` by `1` each time `test_func_2`)
 
-By default shadowhook prevents the reentrancy of proxy functions, because reentrancy can easily lead to an infinite loop between proxy functions. But if this kind of reentrancy of proxy functions is what you need, please refer to the following example to use the `SHADOWHOOK_ALLOW_REENTRANT` macro and `SHADOWHOOK_DISALLOW_REENTRANT` macro to control the "reentrancy" of a code area in the proxy function:
+By default ShadowHook prevents the reentrancy of proxy functions, because reentrancy can easily lead to an infinite loop between proxy functions. But if this kind of reentrancy of proxy functions is what you need, please refer to the following example to use the `SHADOWHOOK_ALLOW_REENTRANT` macro and `SHADOWHOOK_DISALLOW_REENTRANT` macro to control the "reentrancy" of a code area in the proxy function:
 
 The following code hooks `test_func_1`, which uses the `SHADOWHOOK_ALLOW_REENTRANT` macro to allow reentrancy.
 
@@ -570,7 +572,7 @@ int test_func_1_proxy(int a, int b)
     int result = SHADOWHOOK_CALL_PREV(test_func_1_proxy, sz);
     
     // Next, we will continue to add some business logic, 
-    // and want to restore shadowhook's "preventing proxy function from being reentrant" protection function.
+    // and want to restore ShadowHook's "preventing proxy function from being reentrant" protection function.
     SHADOWHOOK_DISALLOW_REENTRANT();
     
     // Continue to add some business logic.
@@ -660,7 +662,7 @@ const char *shadowhook_to_errmsg(int error_number);
 
 # Operation Record
 
-* shadowhook will record the operation information of hook / unhook in memory.
+* ShadowHook will record the operation information of hook / unhook in memory.
 * These operation records can be obtained at the java layer or native layer, and they are returned as strings, in row units, and comma-separated information items.
 * The specific information items and order that can be returned are as follows:
 
