@@ -2,7 +2,7 @@
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
 ![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
-![](https://img.shields.io/badge/Android-4.1%20--%2012-blue.svg?style=flat)
+![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
 [README English Version](README.md)
@@ -14,7 +14,7 @@
 
 ## 特征
 
-* 支持 Android 4.1 - 12 (API level 16 - 31)。
+* 支持 Android 4.1 - 13 (API level 16 - 33)。
 * 支持 armeabi-v7a 和 arm64-v8a。
 * 支持针对函数整体的 hook，不支持对函数中间位置的 hook。
 * 支持通过“函数地址”或“库名 + 函数名”的方式指定 hook 位置。
