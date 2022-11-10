@@ -62,6 +62,7 @@ struct sh_task {
   uintptr_t caller_addr;
   bool finished;
   bool error;
+  bool ignore_symbol_check;
   TAILQ_ENTRY(sh_task, ) link;
 };
 #pragma clang diagnostic pop
@@ -78,7 +79,7 @@ static int sh_task_eventfd;
 static int thread_started_result = SHADOWHOOK_ERRNO_MONITOR_THREAD;
 
 sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                         uintptr_t caller_addr) {
+                                         bool ignore_symbol_check, uintptr_t caller_addr) {
   sh_task_t *self = malloc(sizeof(sh_task_t));
   if (NULL == self) return NULL;
   self->lib_name = NULL;
@@ -91,6 +92,7 @@ sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_ad
   self->caller_addr = caller_addr;
   self->finished = false;
   self->error = false;
+  self->ignore_symbol_check = ignore_symbol_check;
 
   return self;
 }
@@ -111,6 +113,7 @@ sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name
   self->caller_addr = caller_addr;
   self->finished = false;
   self->error = false;
+  self->ignore_symbol_check = false;
 
   return self;
 
@@ -125,47 +128,6 @@ void sh_task_destroy(sh_task_t *self) {
   if (NULL != self->lib_name) free(self->lib_name);
   if (NULL != self->sym_name) free(self->sym_name);
   free(self);
-}
-
-static int sh_task_get_target_addr(const char *lib_name, const char *sym_name, uintptr_t *target_addr) {
-  // open library
-  bool crashed = false;
-  void *handle = NULL;
-  if (sh_util_get_api_level() >= __ANDROID_API_L__) {
-    handle = xdl_open(lib_name, XDL_DEFAULT);
-  } else {
-    SH_SIG_TRY(SIGSEGV, SIGBUS) {
-      handle = xdl_open(lib_name, XDL_DEFAULT);
-    }
-    SH_SIG_CATCH() {
-      crashed = true;
-    }
-    SH_SIG_EXIT
-  }
-  if (crashed) return SHADOWHOOK_ERRNO_HOOK_DLOPEN_CRASH;
-  if (NULL == handle) return SHADOWHOOK_ERRNO_PENDING;
-
-  // lookup symbol address
-  crashed = false;
-  void *addr = NULL;
-  SH_SIG_TRY(SIGSEGV, SIGBUS) {
-    // do xdl_sym() or xdl_dsym() in an dlclosed-ELF will cause a crash
-    addr = xdl_sym(handle, sym_name, NULL);
-    if (NULL == addr) addr = xdl_dsym(handle, sym_name, NULL);
-  }
-  SH_SIG_CATCH() {
-    crashed = true;
-  }
-  SH_SIG_EXIT
-
-  // close library
-  xdl_close(handle);
-
-  if (crashed) return SHADOWHOOK_ERRNO_HOOK_DLSYM_CRASH;
-  if (NULL == addr) return SHADOWHOOK_ERRNO_HOOK_DLSYM;
-
-  *target_addr = (uintptr_t)addr;
-  return 0;
 }
 
 static void sh_task_do_callback(sh_task_t *self, int error_number) {
@@ -185,19 +147,21 @@ static int sh_task_hook_pending(struct dl_phdr_info *info, size_t size, void *ar
     if ('/' == info->dlpi_name[0] && NULL == strstr(info->dlpi_name, task->lib_name)) continue;
     if ('/' != info->dlpi_name[0] && NULL == strstr(task->lib_name, info->dlpi_name)) continue;
 
-    int r = sh_task_get_target_addr(task->lib_name, task->sym_name, &task->target_addr);
+    xdl_info_t dlinfo;
+    char real_lib_name[512];
+    int r = sh_linker_get_dlinfo_by_sym_name(task->lib_name, task->sym_name, &dlinfo, real_lib_name,
+                                             sizeof(real_lib_name));
+    task->target_addr = (uintptr_t)dlinfo.dli_saddr;
     if (SHADOWHOOK_ERRNO_PENDING != r) {
-      char rt_lib_name[512];
-      strlcpy(rt_lib_name, task->lib_name, sizeof(rt_lib_name));
       size_t backup_len = 0;
       if (0 == r) {
-        r = sh_switch_hook(task->target_addr, task->new_addr, task->orig_addr, rt_lib_name,
-                           sizeof(rt_lib_name), NULL, 0, &backup_len);
+        r = sh_switch_hook(task->target_addr, task->new_addr, task->orig_addr, &backup_len, &dlinfo);
         if (0 != r) task->error = true;
       } else {
+        strlcpy(real_lib_name, task->lib_name, sizeof(real_lib_name));
         task->error = true;
       }
-      sh_recorder_add_hook(r, false, task->target_addr, rt_lib_name, task->sym_name, task->new_addr,
+      sh_recorder_add_hook(r, false, task->target_addr, real_lib_name, task->sym_name, task->new_addr,
                            backup_len, (uintptr_t)task, task->caller_addr);
       task->finished = true;
       sh_task_do_callback(task, r);
@@ -288,22 +252,30 @@ end:
 int sh_task_hook(sh_task_t *self) {
   int r;
   bool is_hook_sym_addr = true;
-  char rt_lib_name[512] = "unknown";
-  char rt_sym_name[1024] = "unknown";
+  char real_lib_name[512] = "unknown";
+  char real_sym_name[1024] = "unknown";
   size_t backup_len = 0;
 
   // find target-address by library-name and symbol-name
+  xdl_info_t dlinfo;
+  memset(&dlinfo, 0, sizeof(xdl_info_t));
   if (0 == self->target_addr) {
     is_hook_sym_addr = false;
-    strlcpy(rt_lib_name, self->lib_name, sizeof(rt_lib_name));
-    strlcpy(rt_sym_name, self->sym_name, sizeof(rt_sym_name));
-    r = sh_task_get_target_addr(self->lib_name, self->sym_name, &self->target_addr);
+    strlcpy(real_lib_name, self->lib_name, sizeof(real_lib_name));
+    strlcpy(real_sym_name, self->sym_name, sizeof(real_sym_name));
+    r = sh_linker_get_dlinfo_by_sym_name(self->lib_name, self->sym_name, &dlinfo, real_lib_name,
+                                         sizeof(real_lib_name));
     if (SHADOWHOOK_ERRNO_PENDING == r) {
       // we need to start monitor linker dlopen for handle the pending task
       if (0 != (r = sh_task_start_monitor(true))) goto end;
       r = SHADOWHOOK_ERRNO_PENDING;
       goto end;
     }
+    if (0 != r) goto end;                             // error
+    self->target_addr = (uintptr_t)dlinfo.dli_saddr;  // OK
+  } else {
+    r = sh_linker_get_dlinfo_by_addr((void *)self->target_addr, &dlinfo, real_lib_name, sizeof(real_lib_name),
+                                     real_sym_name, sizeof(real_sym_name), self->ignore_symbol_check);
     if (0 != r) goto end;  // error
   }
 
@@ -315,9 +287,7 @@ int sh_task_hook(sh_task_t *self) {
   }
 
   // hook by target-address
-  if (NULL != self->sym_name) strlcpy(rt_sym_name, self->sym_name, sizeof(rt_sym_name));
-  r = sh_switch_hook(self->target_addr, self->new_addr, self->orig_addr, rt_lib_name, sizeof(rt_lib_name),
-                     NULL != self->sym_name ? NULL : rt_sym_name, sizeof(rt_sym_name), &backup_len);
+  r = sh_switch_hook(self->target_addr, self->new_addr, self->orig_addr, &backup_len, &dlinfo);
   self->finished = true;
 
 end:
@@ -330,7 +300,7 @@ end:
   }
 
   // record
-  sh_recorder_add_hook(r, is_hook_sym_addr, self->target_addr, rt_lib_name, rt_sym_name, self->new_addr,
+  sh_recorder_add_hook(r, is_hook_sym_addr, self->target_addr, real_lib_name, real_sym_name, self->new_addr,
                        backup_len, (uintptr_t)self, self->caller_addr);
 
   return r;

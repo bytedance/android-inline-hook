@@ -49,17 +49,17 @@ extern android_LogPriority sh_log_priority;
 
 #define SH_LOG_INFO(fmt, ...)                                                \
   do {                                                                       \
-    if (sh_log_priority <= ANDROID_LOG_INFO)                                 \
+    if (__predict_false(sh_log_priority <= ANDROID_LOG_INFO))                \
       __android_log_print(ANDROID_LOG_INFO, SH_LOG_TAG, fmt, ##__VA_ARGS__); \
   } while (0)
 #define SH_LOG_WARN(fmt, ...)                                                \
   do {                                                                       \
-    if (sh_log_priority <= ANDROID_LOG_WARN)                                 \
+    if (__predict_false(sh_log_priority <= ANDROID_LOG_WARN))                \
       __android_log_print(ANDROID_LOG_WARN, SH_LOG_TAG, fmt, ##__VA_ARGS__); \
   } while (0)
 #define SH_LOG_ERROR(fmt, ...)                                                \
   do {                                                                        \
-    if (sh_log_priority <= ANDROID_LOG_ERROR)                                 \
+    if (__predict_false(sh_log_priority <= ANDROID_LOG_ERROR))                \
       __android_log_print(ANDROID_LOG_ERROR, SH_LOG_TAG, fmt, ##__VA_ARGS__); \
   } while (0)
 #define SH_LOG_ALWAYS_SHOW(fmt, ...) __android_log_print(ANDROID_LOG_WARN, SH_LOG_TAG, fmt, ##__VA_ARGS__)

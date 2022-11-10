@@ -29,6 +29,16 @@ ENTRY_GLOBAL_ARM(test_a64_helper_global)
 END(test_a64_helper_global)
 
 
+// B, hidden function
+ENTRY_HIDDEN_ARM(test_hidden_func)
+    b        test_a64_helper_global
+    nop
+    nop
+    nop
+    ret
+END(test_hidden_func)
+
+
 // B
 ENTRY_GLOBAL_ARM(test_a64_b)
     b        test_a64_helper_global
@@ -310,4 +320,4 @@ END(test_a64_tbnz_fixaddr)
 ENTRY_HIDDEN_ARM(test_a64_helper_hidden_tail)
     add      x0, x0, x1
     ret
-END(ttest_a64_helper_global_tail)
+END(test_a64_helper_global_tail)

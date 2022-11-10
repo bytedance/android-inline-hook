@@ -36,6 +36,6 @@ typedef struct {
   uintptr_t enter_addr;
 } sh_inst_t;
 
-int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo, uintptr_t new_addr,
+int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
                  uintptr_t *orig_addr, uintptr_t *orig_addr2);
 int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr);

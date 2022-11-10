@@ -217,9 +217,9 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name);
 * Supports specifying the hook location by "function address" or "library name + function name".
 * Automatically completes the hook of "newly loaded so library" (only "library name + function name" method), and calls an optional callback function after the hook is completed.
 * Only hooks for the whole function are supported, and hooks for the middle of the function are not supported.
-* If the function to be hooked is not in the ELF's symbol table (`.dynsym` or `.symtab` or `.symtab in .gnu_debugdata`), the hook will definitely not succeed. Because currently ShadowHook determines the length of the function by parsing the ELF symbol table, preventing the problem of "because the length of the function is too short, the hook operation covers the instructions of other subsequent functions". The design thinking on this problem is: the goal of ShadowHook is not for offline reverse analysis, but for online. To stably find the function location that needs hook online, the most reliable way is to locate the function through symbol starting point. In addition, based on this consideration, ShadowHook abandons "the ability of  hooking any position in a function", and only supports "hooking the head of a function (that is, hooking the function as a whole)".
+* If the function to be hooked is not in the ELF's symbol table (`.dynsym` or `.symtab` or `.symtab in .gnu_debugdata`), It can only be hooked through `shadowhook_hook_func_addr`, and other hook APIs will definitely not be able to hook successfully.
 
-## 1. Execute hook by "function address"
+## 1. Hook function with symbol info via "function address"
 
 ```C
 #include "shadowhook.h"
@@ -228,6 +228,10 @@ void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr)
 ```
 
 This method can only hook "dynamic libraries that are currently loaded into the process".
+
+A function (`sym_addr`) hooked with `shadowhook_hook_sym_addr` must exist in the ELF symbol table (`.dynsym` / `.symtab`). This can be confirmed with `readelf -sW`.
+
+Since the ELF symbol table contains the length information of the function, ShadowHook can use this information to confirm that "the length of the modified function header during hooking will not exceed the total length of the function", which can improve the stability of the hook.
 
 ### Parameters
 
@@ -255,7 +259,69 @@ if(stub == NULL)
 
 In this example, `sym_addr` is specified by the linker when loading the current dynamic library.
 
-## 2. Execute hook by "library name + function name"
+## 2. Hook function without symbol info via "function address"
+
+**ShadowHook provides `shadowhook_hook_func_addr` since version 1.0.4. **
+
+```C
+#include "shadowhook.h"
+
+void *shadowhook_hook_func_addr(void *func_addr, void *new_addr, void **orig_addr);
+```
+
+This method can only hook "dynamic libraries that are currently loaded into the process".
+
+A function (`func_addr`) hooked with `shadowhook_hook_func_addr` may not exist in the ELF symbol table (`.dynsym` / `.symtab`).
+
+At this time, the user needs to ensure that the function corresponding to `func_addr` is long enough. The length of the function required by different architectures and instruction types is as follows:
+
+| Architecture | Instruction type | Minimum function length (bytes) | Ideal function length (bytes) |
+| :--- | :--- | ---: | ---: |
+| arm32 | thumb | 4 | 10 |
+| arm32 | arm32 | 4 | 8 |
+| arm64 | arm64 | 4 | 16 |
+
+Note: The function length here refers to the length of the binary CPU instruction sequence generated after the function is compiled, which can be confirmed with tools such as `objdump`.
+
+1. **actual function length** < minimum function length: arm32 and arm64 will definitely have problems, thumb may have problems.
+2. minimum function length <= **actual function length** < ideal function length: maybe something goes wrong, maybe not. Or sometimes it goes wrong, sometimes it doesn't.
+3. ideal function length <= **actual function length**: No problem for sure. (only refers to problems caused by the length of instruction coverage exceeding the total length of the function)
+
+It can be seen that `shadowhook_hook_func_addr` is less reliable than `shadowhook_hook_sym_addr`. Therefore, it is recommended to use it only in the case of "the length of the instruction of the hooked function is controllable", for example:
+
+1. Fix system library bugs of specific models and specific OS versions by hooking a function without symbol info.
+2. The function that needs to be hooked is returned by a specific version of the API. For example, to hook a specific version of Unity, obtain the address of the function that needs to be hooked through `vkGetInstanceProcAddr` provided by vulkan.
+
+In these cases where "the version of the hooked ELF file is known and controllable", even using `shadowhook_hook_func_addr` to execute the hook, we can verify the stability of the hook in advance during the development phase.
+
+### Parameters
+
+* `func_addr` (must be specified): The absolute address of the function that needs to be hooked.
+* `new_addr` (must be specified): The absolute address of the new function (proxy function).
+* `orig_addr` (you can pass `NULL` if not needed): Return the address of the original function.
+
+### Return Value
+
+* Not `NULL`: the hook succeeded. The return value is a stub, you can save the return value for subsequent use in unhook.
+* `NULL`: The hook failed. You can call `shadowhook_get_errno` to get the errno, and you can continue to call `shadowhook_to_errmsg` to get the error message.
+
+### Example
+
+```C
+void *orig;
+void *func = get_hidden_func_addr();
+void *stub = shadowhook_hook_sym_addr(func, my_func, &orig);
+if(stub == NULL)
+{
+    int error_num = shadowhook_get_errno();
+    const char *error_msg = shadowhook_to_errmsg(error_num);
+    __android_log_print(ANDROID_LOG_WARN,  "test", "hook failed: %d - %s", error_num, error_msg);
+}
+```
+
+In this way, `func_addr` is returned by an external function, which has no symbol info in ELF.
+
+## 3. Hook function by "library name + function name"
 
 ```C
 #include "shadowhook.h"
@@ -293,7 +359,7 @@ const char *error_msg = shadowhook_to_errmsg(error_num);
 __android_log_print(ANDROID_LOG_WARN,  "test", "hook return: %p, %d - %s", stub, error_num, error_msg);
 ```
 
-## 3. Execute hook by "library name + function name" (requires callback)
+## 4. Hook function by "library name + function name" (requires callback)
 
 ```C
 #include "shadowhook.h"
@@ -335,7 +401,7 @@ void do_hook(void)
 }
 ```
 
-## 4. unhook
+## 5. unhook
 
 ```C
 #include "shadowhook.h"

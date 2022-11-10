@@ -24,9 +24,11 @@
 #pragma once
 #include <stdint.h>
 
-int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, char *lib_name,
-                   size_t lib_name_sz, char *sym_name, size_t sym_name_sz, size_t *backup_len);
+#include "xdl.h"
+
+int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, size_t *backup_len,
+                   xdl_info_t *dlinfo);
 int sh_switch_unhook(uintptr_t target_addr, uintptr_t new_addr);
 
-int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, char *lib_name,
-                             size_t lib_name_sz, char *sym_name, size_t sym_name_sz, size_t *backup_len);
+int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
+                             size_t *backup_len, xdl_info_t *dlinfo);

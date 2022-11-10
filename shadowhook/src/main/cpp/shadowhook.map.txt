@@ -1,6 +1,7 @@
 {
     global:
         JNI_OnLoad;
+        sh_util_clear_cache;
 
         shadowhook_init;
 
@@ -11,6 +12,7 @@
         shadowhook_get_errno;
         shadowhook_to_errmsg;
 
+        shadowhook_hook_func_addr;
         shadowhook_hook_sym_addr;
         shadowhook_hook_sym_name;
         shadowhook_hook_sym_name_callback;

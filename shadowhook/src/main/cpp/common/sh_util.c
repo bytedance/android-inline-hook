@@ -105,10 +105,10 @@ static int sh_util_get_api_level_from_build_prop(void) {
   int api_level = -1;
 
   FILE *fp = fopen("/system/build.prop", "r");
-  if (NULL == fp) goto end;
+  if (__predict_false(NULL == fp)) goto end;
 
   while (fgets(buf, sizeof(buf), fp)) {
-    if (sh_util_starts_with(buf, "ro.build.version.sdk=")) {
+    if (__predict_false(sh_util_starts_with(buf, "ro.build.version.sdk="))) {
       api_level = atoi(buf + 21);
       break;
     }
@@ -122,10 +122,11 @@ end:
 int sh_util_get_api_level(void) {
   static int xdl_util_api_level = -1;
 
-  if (xdl_util_api_level < 0) {
+  if (__predict_false(xdl_util_api_level < 0)) {
     int api_level = android_get_device_api_level();
-    if (api_level < 0) api_level = sh_util_get_api_level_from_build_prop();  // compatible with unusual models
-    if (api_level < __ANDROID_API_J__) api_level = __ANDROID_API_J__;
+    if (__predict_false(api_level < 0))
+      api_level = sh_util_get_api_level_from_build_prop();  // compatible with unusual models
+    if (__predict_false(api_level < __ANDROID_API_J__)) api_level = __ANDROID_API_J__;
 
     __atomic_store_n(&xdl_util_api_level, api_level, __ATOMIC_SEQ_CST);
   }

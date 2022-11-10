@@ -1,6 +1,6 @@
 plugins {
-    id 'com.android.application' version '7.1.3' apply false
-    id 'com.android.library' version '7.1.3' apply false
+    id 'com.android.application' version '7.2.2' apply false
+    id 'com.android.library' version '7.2.2' apply false
 }
 
 task clean(type: Delete) {
@@ -9,20 +9,20 @@ task clean(type: Delete) {
 
 ext {
     minSdkVersion = 16
-    compileSdkVersion = 31
-    targetSdkVersion = 31
-    buildToolsVersion = '31.0.0'
+    compileSdkVersion = 33
+    targetSdkVersion = 33
+    buildToolsVersion = '33.0.0'
     javaVersion = JavaVersion.VERSION_1_7
-    ndkVersion = "23.1.7779620"
-    cmakeVersion = "3.18.1"
+    ndkVersion = "23.2.8568313"
+    cmakeVersion = "3.22.1"
     abiFilters = "armeabi-v7a,arm64-v8a"
     useASAN = false
     dependencyOnLocalLibrary = true
-    shadowhookVersion = "1.0.3"
+    shadowhookVersion = "1.0.4"
 
     POM_GROUP_ID = "com.bytedance.android"
     POM_ARTIFACT_ID = "shadowhook"
-    POM_VERSION_NAME = "1.0.3"
+    POM_VERSION_NAME = "1.0.4"
 
     POM_NAME = "shadowhook"
     POM_DESCRIPTION = "ShadowHook is an Android inline hook library which supports thumb, arm32 and arm64."

@@ -208,7 +208,7 @@ static int sh_inst_hook_thumb_rewrite(sh_inst_t *self, uintptr_t target_addr, ui
 }
 
 #ifdef SH_CONFIG_DETECT_THUMB_TAIL_ALIGNED
-static bool sh_inst_thumb_is_long_enough(uintptr_t target_addr, size_t overwrite_len, xdl_info *dlinfo) {
+static bool sh_inst_thumb_is_long_enough(uintptr_t target_addr, size_t overwrite_len, xdl_info_t *dlinfo) {
   if (overwrite_len <= dlinfo->dli_ssize) return true;
 
   // check align-4 in the end of symbol
@@ -221,7 +221,7 @@ static bool sh_inst_thumb_is_long_enough(uintptr_t target_addr, size_t overwrite
 
     // should not belong to any symbol
     void *dlcache = NULL;
-    xdl_info dlinfo2;
+    xdl_info_t dlinfo2;
     if (sh_util_get_api_level() >= __ANDROID_API_L__) {
       xdl_addr((void *)SH_UTIL_SET_BIT0(sym_end), &dlinfo2, &dlcache);
     } else {
@@ -251,7 +251,7 @@ static bool sh_inst_thumb_is_long_enough(uintptr_t target_addr, size_t overwrite
 #define SH_INST_T32_B_RANGE_LOW  (16777216)
 #define SH_INST_T32_B_RANGE_HIGH (16777214)
 
-static int sh_inst_hook_thumb_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_thumb_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                         uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   target_addr = SH_UTIL_CLEAR_BIT0(target_addr);
@@ -305,7 +305,7 @@ err:
 }
 #endif
 
-static int sh_inst_hook_thumb_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_thumb_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                            uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   target_addr = SH_UTIL_CLEAR_BIT0(target_addr);
@@ -384,7 +384,7 @@ static int sh_inst_hook_arm_rewrite(sh_inst_t *self, uintptr_t target_addr, uint
 #define SH_INST_A32_B_RANGE_LOW  (33554432)
 #define SH_INST_A32_B_RANGE_HIGH (33554428)
 
-static int sh_inst_hook_arm_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_arm_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                       uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   uintptr_t pc = target_addr + 8;
@@ -431,7 +431,7 @@ err:
 
 #endif
 
-static int sh_inst_hook_arm_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_arm_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                          uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   self->backup_len = 8;
@@ -461,7 +461,7 @@ static int sh_inst_hook_arm_without_exit(sh_inst_t *self, uintptr_t target_addr,
   return 0;
 }
 
-int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo, uintptr_t new_addr,
+int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
                  uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   self->enter_addr = sh_enter_alloc();
   if (0 == self->enter_addr) return SHADOWHOOK_ERRNO_HOOK_ENTER;

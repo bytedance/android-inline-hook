@@ -82,63 +82,6 @@ static sh_switch_t *sh_switch_find(uintptr_t target_addr) {
   return self;
 }
 
-static int sh_switch_get_and_check_dlinfo(uintptr_t target_addr, xdl_info *dlinfo, char *lib_name,
-                                          size_t lib_name_sz, char *sym_name, size_t sym_name_sz) {
-  // dladdr()
-  bool crashed = false;
-  void *dlcache = NULL;
-  int r = 0;
-  if (sh_util_get_api_level() >= __ANDROID_API_L__) {
-    r = xdl_addr((void *)target_addr, dlinfo, &dlcache);
-  } else {
-    SH_SIG_TRY(SIGSEGV, SIGBUS) {
-      r = xdl_addr((void *)target_addr, dlinfo, &dlcache);
-    }
-    SH_SIG_CATCH() {
-      crashed = true;
-    }
-    SH_SIG_EXIT
-  }
-  SH_LOG_INFO("switch: get dlinfo info: target_addr %" PRIxPTR
-              ", sym_name %s, sym_sz %zu, load_bias %" PRIxPTR ", pathname %s",
-              target_addr, NULL == dlinfo->dli_sname ? "(NULL)" : dlinfo->dli_sname, dlinfo->dli_ssize,
-              (uintptr_t)dlinfo->dli_fbase, NULL == dlinfo->dli_fname ? "(NULL)" : dlinfo->dli_fname);
-
-  // check error
-  if (crashed) {
-    r = SHADOWHOOK_ERRNO_HOOK_DLADDR_CRASH;
-    goto end;
-  }
-  if (0 == r || NULL == dlinfo->dli_fname) {
-    r = SHADOWHOOK_ERRNO_HOOK_DLINFO;
-    goto end;
-  }
-  const char *matched_dlfcn_name = NULL;
-  if (NULL == dlinfo->dli_sname) {
-    if (NULL == (matched_dlfcn_name = sh_linker_match_dlfcn(target_addr))) {
-      r = SHADOWHOOK_ERRNO_HOOK_DLINFO;
-      goto end;
-    } else {
-      dlinfo->dli_ssize = 4;
-      SH_LOG_INFO("switch: match dlfcn, target_addr %" PRIxPTR ", sym_name %s", target_addr,
-                  matched_dlfcn_name);
-    }
-  }
-  if (0 == dlinfo->dli_ssize) {
-    r = SHADOWHOOK_ERRNO_HOOK_SYMSZ;
-    goto end;
-  }
-
-  if (NULL != lib_name) strlcpy(lib_name, dlinfo->dli_fname, lib_name_sz);
-  if (NULL != sym_name)
-    strlcpy(sym_name, NULL != dlinfo->dli_sname ? dlinfo->dli_sname : matched_dlfcn_name, sym_name_sz);
-  r = 0;
-
-end:
-  xdl_addr_clean(&dlcache);
-  return r;
-}
-
 static int sh_switch_create(sh_switch_t **self, uintptr_t target_addr, uintptr_t *hub_trampo) {
   *self = memalign(16, sizeof(sh_switch_t));
   if (NULL == *self) return SHADOWHOOK_ERRNO_OOM;
@@ -180,19 +123,12 @@ static void sh_switch_dump_enter(sh_switch_t *self) {
 }
 
 static int sh_switch_hook_unique(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                 char *lib_name, size_t lib_name_sz, char *sym_name, size_t sym_name_sz,
-                                 size_t *backup_len) {
+                                 size_t *backup_len, xdl_info_t *dlinfo) {
   sh_switch_t *self = sh_switch_find(target_addr);
   if (NULL != self) return SHADOWHOOK_ERRNO_HOOK_DUP;
 
-  // get & check dl-info
-  int r;
-  xdl_info dlinfo;
-  if (0 != (r = sh_switch_get_and_check_dlinfo(target_addr, &dlinfo, lib_name, lib_name_sz, sym_name,
-                                               sym_name_sz)))
-    return r;
-
   // alloc new switch
+  int r;
   if (0 != (r = sh_switch_create(&self, target_addr, NULL))) return r;
 
   sh_switch_t *useless = NULL;
@@ -206,7 +142,7 @@ static int sh_switch_hook_unique(uintptr_t target_addr, uintptr_t new_addr, uint
   }
 
   // do hook
-  if (0 != (r = sh_inst_hook(&self->inst, target_addr, &dlinfo, new_addr, orig_addr, NULL))) {
+  if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, new_addr, orig_addr, NULL))) {
     RB_REMOVE(sh_switch_tree, &sh_switches, self);
     useless = self;
     goto end;
@@ -221,8 +157,7 @@ end:
 }
 
 static int sh_switch_hook_shared(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                 char *lib_name, size_t lib_name_sz, char *sym_name, size_t sym_name_sz,
-                                 size_t *backup_len) {
+                                 size_t *backup_len, xdl_info_t *dlinfo) {
   int r;
 
   pthread_rwlock_rdlock(&sh_switches_lock);  // SYNC(read) - start
@@ -235,22 +170,12 @@ static int sh_switch_hook_shared(uintptr_t target_addr, uintptr_t new_addr, uint
     r = sh_hub_add_proxy(self->hub, new_addr);
     pthread_rwlock_unlock(&sh_switches_lock);  // SYNC(read) - end
 
-    // get lib_name and/or sym_name for recorder
-    xdl_info dlinfo;
-    sh_switch_get_and_check_dlinfo(target_addr, &dlinfo, lib_name, lib_name_sz, sym_name, sym_name_sz);
-
     *backup_len = self->inst.backup_len;
     return r;
   }
   pthread_rwlock_unlock(&sh_switches_lock);  // SYNC(read) - end
 
   // first hook for this target_addr
-
-  // get & check dl-info
-  xdl_info dlinfo;
-  if (0 != (r = sh_switch_get_and_check_dlinfo(target_addr, &dlinfo, lib_name, lib_name_sz, sym_name,
-                                               sym_name_sz)))
-    return r;
 
   // alloc new switch
   uintptr_t hub_trampo;
@@ -270,7 +195,7 @@ static int sh_switch_hook_shared(uintptr_t target_addr, uintptr_t new_addr, uint
   } else {
     // do hook
     uintptr_t *safe_orig_addr_addr = sh_safe_get_orig_addr_addr(target_addr);
-    if (0 != (r = sh_inst_hook(&self->inst, target_addr, &dlinfo, hub_trampo,
+    if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, hub_trampo,
                                sh_hub_get_orig_addr_addr(self->hub), safe_orig_addr_addr))) {
       RB_REMOVE(sh_switch_tree, &sh_switches, self);
       useless = self;
@@ -299,15 +224,13 @@ end:
   return r;
 }
 
-int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, char *lib_name,
-                   size_t lib_name_sz, char *sym_name, size_t sym_name_sz, size_t *backup_len) {
+int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, size_t *backup_len,
+                   xdl_info_t *dlinfo) {
   int r;
   if (SHADOWHOOK_IS_UNIQUE_MODE)
-    r = sh_switch_hook_unique(target_addr, new_addr, orig_addr, lib_name, lib_name_sz, sym_name, sym_name_sz,
-                              backup_len);
+    r = sh_switch_hook_unique(target_addr, new_addr, orig_addr, backup_len, dlinfo);
   else
-    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, lib_name, lib_name_sz, sym_name, sym_name_sz,
-                              backup_len);
+    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo);
 
   if (0 == r)
     SH_LOG_INFO("switch: hook in %s mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,
@@ -317,20 +240,12 @@ int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_ad
 }
 
 static int sh_switch_hook_unique_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                           char *lib_name, size_t lib_name_sz, char *sym_name,
-                                           size_t sym_name_sz, size_t *backup_len) {
-  // get & check dl-info
-  int r;
-  xdl_info dlinfo;
-  if (0 != (r = sh_switch_get_and_check_dlinfo(target_addr, &dlinfo, lib_name, lib_name_sz, sym_name,
-                                               sym_name_sz)))
-    return r;
-
+                                           size_t *backup_len, xdl_info_t *dlinfo) {
   pthread_rwlock_wrlock(&sh_switches_lock);  // SYNC - start
 
   // do hook
   sh_inst_t inst;
-  r = sh_inst_hook(&inst, target_addr, &dlinfo, new_addr, orig_addr, NULL);
+  int r = sh_inst_hook(&inst, target_addr, dlinfo, new_addr, orig_addr, NULL);
 
   pthread_rwlock_unlock(&sh_switches_lock);  // SYNC - end
 
@@ -338,15 +253,13 @@ static int sh_switch_hook_unique_invisible(uintptr_t target_addr, uintptr_t new_
   return r;
 }
 
-int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, char *lib_name,
-                             size_t lib_name_sz, char *sym_name, size_t sym_name_sz, size_t *backup_len) {
+int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
+                             size_t *backup_len, xdl_info_t *dlinfo) {
   int r;
   if (SHADOWHOOK_IS_UNIQUE_MODE)
-    r = sh_switch_hook_unique_invisible(target_addr, new_addr, orig_addr, lib_name, lib_name_sz, sym_name,
-                                        sym_name_sz, backup_len);
+    r = sh_switch_hook_unique_invisible(target_addr, new_addr, orig_addr, backup_len, dlinfo);
   else
-    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, lib_name, lib_name_sz, sym_name, sym_name_sz,
-                              backup_len);
+    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo);
 
   if (0 == r)
     SH_LOG_INFO("switch: hook(invisible) in %s mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,

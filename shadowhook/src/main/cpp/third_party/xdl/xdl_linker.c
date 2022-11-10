@@ -29,6 +29,7 @@
 #include <stdio.h>
 
 #include "xdl.h"
+#include "xdl_iterate.h"
 #include "xdl_util.h"
 
 #define XDL_LINKER_SYM_MUTEX           "__dl__ZL10g_dl_mutex"
@@ -42,6 +43,23 @@ typedef void *(*xdl_linker_dlopen_o_t)(const char *, int, const void *);
 
 static pthread_mutex_t *xdl_linker_mutex = NULL;
 static void *xdl_linker_dlopen = NULL;
+
+static void *xdl_linker_caller_addr[] = {
+    NULL,  // default
+    NULL,  // art
+    NULL   // vendor
+};
+
+#ifndef __LP64__
+#define XDL_LINKER_LIB "lib"
+#else
+#define XDL_LINKER_LIB "lib64"
+#endif
+static const char *xdl_linker_vendor_path[] = {
+    // order is important
+    "/vendor/" XDL_LINKER_LIB "/egl/",     "/vendor/" XDL_LINKER_LIB "/hw/",
+    "/vendor/" XDL_LINKER_LIB "/",         "/odm/" XDL_LINKER_LIB "/",
+    "/vendor/" XDL_LINKER_LIB "/vndk-sp/", "/odm/" XDL_LINKER_LIB "/vndk-sp/"};
 
 static void xdl_linker_init(void) {
   static bool inited = false;
@@ -83,6 +101,55 @@ void xdl_linker_unlock(void) {
   if (NULL != xdl_linker_mutex) pthread_mutex_unlock(xdl_linker_mutex);
 }
 
+static void *xdl_linker_get_caller_addr(struct dl_phdr_info *info) {
+  for (size_t i = 0; i < info->dlpi_phnum; i++) {
+    const ElfW(Phdr) *phdr = &(info->dlpi_phdr[i]);
+    if (PT_LOAD == phdr->p_type) {
+      return (void *)(info->dlpi_addr + phdr->p_vaddr);
+    }
+  }
+  return NULL;
+}
+
+static int xdl_linker_get_caller_addr_cb(struct dl_phdr_info *info, size_t size, void *arg) {
+  (void)size;
+
+  size_t *vendor_match = (size_t *)arg;
+
+  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0;  // continue
+
+  if (NULL == xdl_linker_caller_addr[0] && xdl_util_ends_with(info->dlpi_name, "/libc.so"))
+    xdl_linker_caller_addr[0] = xdl_linker_get_caller_addr(info);
+
+  if (NULL == xdl_linker_caller_addr[1] && xdl_util_ends_with(info->dlpi_name, "/libart.so"))
+    xdl_linker_caller_addr[1] = xdl_linker_get_caller_addr(info);
+
+  if (0 != *vendor_match) {
+    for (size_t i = 0; i < *vendor_match; i++) {
+      if (xdl_util_starts_with(info->dlpi_name, xdl_linker_vendor_path[i])) {
+        void *caller_addr = xdl_linker_get_caller_addr(info);
+        if (NULL != caller_addr) {
+          xdl_linker_caller_addr[2] = caller_addr;
+          *vendor_match = i;
+        }
+      }
+    }
+  }
+
+  if (NULL != xdl_linker_caller_addr[0] && NULL != xdl_linker_caller_addr[1] && 0 == *vendor_match) {
+    return 1;  // finish
+  } else {
+    return 0;  // continue
+  }
+}
+
+static void xdl_linker_load_caller_addr(void) {
+  if (NULL == xdl_linker_caller_addr[0]) {
+    size_t vendor_match = sizeof(xdl_linker_vendor_path) / sizeof(xdl_linker_vendor_path[0]);
+    xdl_iterate_phdr_impl(xdl_linker_get_caller_addr_cb, &vendor_match, XDL_DEFAULT);
+  }
+}
+
 void *xdl_linker_load(const char *filename) {
   int api_level = xdl_util_get_api_level();
 
@@ -92,17 +159,29 @@ void *xdl_linker_load(const char *filename) {
   } else {
     xdl_linker_init();
     if (NULL == xdl_linker_dlopen) return NULL;
+    xdl_linker_load_caller_addr();
 
-    void *caller = (void *)snprintf;
+    void *handle = NULL;
     if (__ANDROID_API_N__ == api_level || __ANDROID_API_N_MR1__ == api_level) {
       // == Android 7.x
       xdl_linker_lock();
-      void *handle = ((xdl_linker_dlopen_n_t)xdl_linker_dlopen)(filename, RTLD_NOW, NULL, caller);
+      for (size_t i = 0; i < sizeof(xdl_linker_caller_addr) / sizeof(xdl_linker_caller_addr[0]); i++) {
+        if (NULL != xdl_linker_caller_addr[i]) {
+          handle =
+              ((xdl_linker_dlopen_n_t)xdl_linker_dlopen)(filename, RTLD_NOW, NULL, xdl_linker_caller_addr[i]);
+          if (NULL != handle) break;
+        }
+      }
       xdl_linker_unlock();
-      return handle;
     } else {
       // >= Android 8.0
-      return ((xdl_linker_dlopen_o_t)xdl_linker_dlopen)(filename, RTLD_NOW, caller);
+      for (size_t i = 0; i < sizeof(xdl_linker_caller_addr) / sizeof(xdl_linker_caller_addr[0]); i++) {
+        if (NULL != xdl_linker_caller_addr[i]) {
+          handle = ((xdl_linker_dlopen_o_t)xdl_linker_dlopen)(filename, RTLD_NOW, xdl_linker_caller_addr[i]);
+          if (NULL != handle) break;
+        }
+      }
     }
+    return handle;
   }
 }

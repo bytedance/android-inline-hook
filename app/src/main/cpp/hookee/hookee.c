@@ -92,3 +92,14 @@ int test_hook_multi_times(int a, int b) {
   LOG("**> test_hook_multiple_times called");
   return a + b;
 }
+
+void *get_hidden_func_addr(void) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpointer-arith"
+#if defined(__arm__)
+  return (void *)test_a32_helper_global + 8;
+#elif defined(__aarch64__)
+  return (void *)test_a64_helper_global + 8;
+#endif
+#pragma clang diagnostic pop
+}

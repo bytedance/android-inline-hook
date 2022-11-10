@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.1)
+cmake_minimum_required(VERSION 3.22.1)
 project(shadowhook)
 
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
@@ -10,8 +10,8 @@ endif()
 set(TARGET "shadowhook")
 file(GLOB SRC *.c arch/${ARCH}/*.c common/*.c third_party/*/*.c)
 add_library(${TARGET} SHARED ${SRC})
-target_compile_features(${TARGET} PUBLIC c_std_11)
-target_compile_options(${TARGET} PUBLIC -Weverything -Werror)
+target_compile_features(${TARGET} PUBLIC c_std_17)
+target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror)
 target_include_directories(${TARGET} PUBLIC . include arch/${ARCH} common third_party/xdl third_party/bsd third_party/lss)
 target_link_libraries(${TARGET} log)
 

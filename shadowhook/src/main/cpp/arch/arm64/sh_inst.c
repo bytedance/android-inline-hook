@@ -78,7 +78,7 @@ static int sh_inst_hook_rewrite(sh_inst_t *self, uintptr_t target_addr, uintptr_
 #define SH_INST_A64_B_RANGE_LOW  (134217728)
 #define SH_INST_A64_B_RANGE_HIGH (134217724)
 
-static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                   uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   uintptr_t pc = target_addr;
@@ -125,7 +125,7 @@ err:
 }
 #endif
 
-static int sh_inst_hook_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo,
+static int sh_inst_hook_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo,
                                      uintptr_t new_addr, uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   int r;
   self->backup_len = 16;
@@ -155,7 +155,7 @@ static int sh_inst_hook_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl
   return 0;
 }
 
-int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info *dlinfo, uintptr_t new_addr,
+int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
                  uintptr_t *orig_addr, uintptr_t *orig_addr2) {
   self->enter_addr = sh_enter_alloc();
   if (0 == self->enter_addr) return SHADOWHOOK_ERRNO_HOOK_ENTER;

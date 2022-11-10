@@ -66,7 +66,7 @@ static int bytesig_load_symbol(void) {
   if (loaded >= 0) return loaded;
 
   void *libc = dlopen("libc.so", RTLD_LOCAL);
-  if (NULL != libc) {
+  if (__predict_true(NULL != libc)) {
     // sigprocmask64() / sigprocmask()
     bytesig_libc_sigprocmask64 = (bytesig_libc_sigprocmask64_t)dlsym(libc, "sigprocmask64");
     if (NULL == bytesig_libc_sigprocmask64)
@@ -232,17 +232,18 @@ int bytesig_init(int signum) {
   int ret = -1;
   static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-  if (signum <= 0 || signum >= __SIGRTMIN || signum == SIGKILL || signum == SIGSTOP) return -1;
+  if (__predict_false(signum <= 0 || signum >= __SIGRTMIN || signum == SIGKILL || signum == SIGSTOP))
+    return -1;
 
-  if (NULL != bytesig_signal_array[signum]) return -1;
+  if (__predict_false(NULL != bytesig_signal_array[signum])) return -1;
   pthread_mutex_lock(&lock);
-  if (NULL != bytesig_signal_array[signum]) goto end;
+  if (__predict_false(NULL != bytesig_signal_array[signum])) goto end;
 
   // load symbols from bionic (only once)
-  if (0 != bytesig_load_symbol()) goto end;
+  if (__predict_false(0 != bytesig_load_symbol())) goto end;
 
   bytesig_signal_t *sig = calloc(1, sizeof(bytesig_signal_t));
-  if (NULL == sig) goto end;
+  if (__predict_false(NULL == sig)) goto end;
 
   // register the signal with the kernel
   // in our handler, we start off with all signals blocked
@@ -251,7 +252,7 @@ int bytesig_init(int signum) {
   sigfillset(&act.sa_mask);
   act.sa_sigaction = bytesig_handler;
   act.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_RESTART;
-  if (0 != bytesig_real_sigaction(signum, &act, &sig->prev_action)) {
+  if (__predict_false(0 != bytesig_real_sigaction(signum, &act, &sig->prev_action))) {
     free(sig);
     goto end;
   }

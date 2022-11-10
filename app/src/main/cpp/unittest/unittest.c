@@ -37,9 +37,10 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#define LOG(fmt, ...) __android_log_print(ANDROID_LOG_INFO, "shadowhook_tag", fmt, ##__VA_ARGS__)
-#pragma clang diagnostic pop
+#pragma clang diagnostic ignored "-Wunused-function"
+#pragma clang diagnostic ignored "-Wunused-variable"
 
+#define LOG(fmt, ...)    __android_log_print(ANDROID_LOG_INFO, "shadowhook_tag", fmt, ##__VA_ARGS__)
 #define DELIMITER        ">>>>>>>>>>>>>>>>>>> %s >>>>>>>>>>>>>>>>>>>"
 #define TO_STR_HELPER(x) #x
 #define TO_STR(x)        TO_STR_HELPER(x)
@@ -119,7 +120,7 @@ typedef int (*test_t)(int, int);
 
 #define UNHOOK_WITH_TAG(inst, tag)                                                               \
   do {                                                                                           \
-    if (NULL == stub_##inst##tag) return -1;                                                     \
+    if (NULL == stub_##inst##tag) break;                                                         \
     int r_ = shadowhook_unhook(stub_##inst##tag);                                                \
     stub_##inst##tag = NULL;                                                                     \
     if (0 != r_) {                                                                               \
@@ -223,6 +224,30 @@ static int hook_dlopen(int api_level) {
 }
 
 // end of - hooking dlopen() or do_dlopen()
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+// hooking hidden function (without symbol info in ELF)
+
+static test_t test_hidden_func = NULL;
+PROXY(hidden_func)
+
+static void run_hidden_func(void) {
+  if (NULL == test_hidden_func) test_hidden_func = (test_t)get_hidden_func_addr();
+  RUN(hidden_func);
+}
+
+static int hook_hidden_func(void) {
+  if (NULL == test_hidden_func) test_hidden_func = (test_t)get_hidden_func_addr();
+  if (NULL != stub_hidden_func) return -1;
+  stub_hidden_func = shadowhook_hook_func_addr(
+      (void *)test_hidden_func,
+      SHADOWHOOK_IS_UNIQUE_MODE ? (void *)unique_proxy_hidden_func : (void *)shared_proxy_hidden_func,
+      (void **)(&orig_hidden_func));
+  return NULL == stub_hidden_func ? -1 : 0;
+}
+
+// end of - hooking hidden function (without symbol info in ELF)
 ///////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////
@@ -458,6 +483,13 @@ static int unittest_hook(int api_level) {
 
 #endif
 
+  if (unittest_is_hook_addr) {
+    if (0 != hook_hidden_func()) {
+      LOG("hook hidden function FAILED");
+      return -1;
+    }
+  }
+
   if (SHADOWHOOK_IS_SHARED_MODE) {
     HOOK(recursion_1);
     HOOK(recursion_2);
@@ -574,6 +606,8 @@ int unittest_unhook(void) {
 
 #endif
 
+  UNHOOK(hidden_func);
+
   if (SHADOWHOOK_IS_SHARED_MODE) {
     UNHOOK(recursion_1);
     UNHOOK(recursion_2);
@@ -681,18 +715,23 @@ int unittest_run(bool hookee2_loaded) {
 
 #endif
 
+  LOG(DELIMITER, "TEST - hidden function");
+  run_hidden_func();
+
   if (SHADOWHOOK_IS_SHARED_MODE) {
-    LOG(DELIMITER, "TEST BIZ - recursion");
+    LOG(DELIMITER, "TEST - recursion");
     RUN(recursion_1);
-    LOG(DELIMITER, "TEST BIZ - hook multi times");
+    LOG(DELIMITER, "TEST - hook multi times");
     RUN(hook_multi_times);
   }
 
   if (hookee2_loaded) {
-    LOG(DELIMITER, "TEST BIZ - hook before dlopen");
+    LOG(DELIMITER, "TEST - hook before dlopen");
     RUN_WITH_DLSYM(libhookee2.so, hook_before_dlopen_1);
     RUN_WITH_DLSYM(libhookee2.so, hook_before_dlopen_2);
   }
 
   return 0;
 }
+
+#pragma clang diagnostic pop

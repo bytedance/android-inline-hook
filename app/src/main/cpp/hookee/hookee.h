@@ -116,3 +116,5 @@ int test_recursion_1(int a, int b);
 int test_recursion_2(int a, int b);
 
 int test_hook_multi_times(int a, int b);
+
+void *get_hidden_func_addr(void);

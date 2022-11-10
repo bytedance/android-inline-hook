@@ -1,7 +1,7 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
+![](https://img.shields.io/badge/release-1.0.4-red.svg?style=flat)
 ![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
@@ -55,7 +55,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.3'
+    implementation 'com.bytedance.android:shadowhook:1.0.4'
 }
 ```
 
@@ -143,6 +143,11 @@ public class MySdk {
 ```C
 #include "shadowhook.h"
 
+void *shadowhook_hook_func_addr(
+    void *func_addr,
+    void *new_addr,
+    void **orig_addr);
+
 void *shadowhook_hook_sym_addr(
     void *sym_addr,
     void *new_addr,
@@ -174,8 +179,9 @@ void *shadowhook_hook_sym_name_callback(
 int shadowhook_unhook(void *stub);
 ```
 
-* `shadowhook_hook_sym_addr`: hook a function address.
-* `shadowhook_hook_sym_name`: hook the symbol name of a function in a dynamic library.
+* `shadowhook_hook_func_addr`: hook a function (which has no symbol info in ELF) by absolute address.
+* `shadowhook_hook_sym_addr`: hook a function (which has symbol info in ELF) by absolute address.
+* `shadowhook_hook_sym_name`: hook a function by symbol name and ELF file name or path name.
 * `shadowhook_hook_sym_name_callback`: Similar to `shadowhook_hook_sym_name`, but the specified callback function will be called after the hook is completed.
 * `shadowhook_unhook`: unhook.
 

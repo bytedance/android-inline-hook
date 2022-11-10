@@ -53,9 +53,9 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.4.1'
-    implementation 'com.google.android.material:material:1.5.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
+    implementation 'androidx.appcompat:appcompat:1.5.1'
+    implementation 'com.google.android.material:material:1.7.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
     if (rootProject.ext.dependencyOnLocalLibrary) {
         implementation project(':shadowhook')
@@ -66,13 +66,3 @@ dependencies {
 }
 
 apply from: rootProject.file('gradle/sanitizer.gradle')
-
-if (rootProject.ext.dependencyOnLocalLibrary) {
-    tasks.whenTaskAdded { task ->
-        if (task.name == 'preDebugBuild') {
-            task.dependsOn(':shadowhook:prefabDebugConfigurePackage')
-        } else if (task.name == 'preReleaseBuild') {
-            task.dependsOn(':shadowhook:prefabReleaseConfigurePackage')
-        }
-    }
-}

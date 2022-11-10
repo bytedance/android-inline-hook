@@ -95,6 +95,7 @@ const char *shadowhook_to_errmsg(int error_number);
 // hook and unhook
 typedef void (*shadowhook_hooked_t)(int error_number, const char *lib_name, const char *sym_name,
                                     void *sym_addr, void *new_addr, void *orig_addr, void *arg);
+void *shadowhook_hook_func_addr(void *func_addr, void *new_addr, void **orig_addr);
 void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr);
 void *shadowhook_hook_sym_name(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr);
 void *shadowhook_hook_sym_name_callback(const char *lib_name, const char *sym_name, void *new_addr,

@@ -217,9 +217,9 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name);
 * 支持通过“函数地址”或“库名 + 函数名”指定 hook 位置。
 * 自动完成“新加载so库”的 hook（仅限“库名 + 函数名”方式），hook 完成后调用可选的回调函数。
 * 只支持针对函数整体的 hook，不支持对函数中间位置的 hook。
-* 如果要 hook 的函数不在 ELF 的符号表（`.dynsym` 或 `.symtab` 或 `.symtab in .gnu_debugdata`）中，则肯定无法 hook 成功。因为目前shadowhook 通过解析 ELF 的符号表来确定函数的长度，防止出现“由于函数长度太短，导致 hook 操作覆盖了后续其他函数的指令”的问题。对于这个问题的设计思考是：ShadowHook 的目标不是用于线下逆向分析，而是用于线上，要在线上稳定的找到需要 hook 的函数位置，目前最可靠的方式还是通过符号来定位函数的起始位置。另外，也是基于对这点的考虑，ShadowHook 放弃了“hook 函数中任意位置的功能”，只支持“hook 函数的头部（即对函数整体进行hook）”。
+* 如果要 hook 的函数不在 ELF 的符号表（`.dynsym` 或 `.symtab` 或 `.symtab in .gnu_debugdata`）中，则只能通过 `shadowhook_hook_func_addr` 来 hook，其他的 hook API 肯定无法 hook 成功。
 
-## 1. 通过“函数地址”执行 hook
+## 1. 通过 “函数地址” hook 有符号信息的函数
 
 ```C
 #include "shadowhook.h"
@@ -228,6 +228,10 @@ void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr)
 ```
 
 这种方式只能 hook “当前已加载到进程中的动态库”。
+
+用 `shadowhook_hook_sym_addr` hook 的函数（`sym_addr`）必须存在于 ELF 的符号表（`.dynsym` / `.symtab`）中。可以用 `readelf -sW` 确认。
+
+由于 ELF 的符号表中包含函数的长度信息，所以 ShadowHook 可以用这个信息来确认“hook 时修改的函数头部长度不会超过函数总长度”，这样做能提高 hook 的稳定性。
 
 ### 参数
 
@@ -255,7 +259,69 @@ if(stub == NULL)
 
 在这个例子中，`sym_addr` 是由 linker 在加载当前动态库时指定的。
 
-## 2. 通过“库名 + 函数名”执行hook
+## 2. 通过 “函数地址” hook 无符号信息的函数
+
+**ShadowHook 从 1.0.4 版本开始提供 `shadowhook_hook_func_addr`。**
+
+```C
+#include "shadowhook.h"
+
+void *shadowhook_hook_func_addr(void *func_addr, void *new_addr, void **orig_addr);
+```
+
+这种方式只能 hook “当前已加载到进程中的动态库”。
+
+用 `shadowhook_hook_func_addr` hook 的函数（`func_addr`）可以不存在于 ELF 的符号表（`.dynsym` / `.symtab`）中。
+
+此时需要使用者保证 `func_addr` 对应的函数足够长，不同架构和指令类型需要的函数长度如下：
+
+| 架构 | 指令类型 | 最小函数长度（字节） | 理想函数长度（字节） |
+| :--- | :--- | ---: | ---: |
+| arm32 | thumb | 4 | 10 |
+| arm32 | arm32 | 4 | 8 |
+| arm64 | arm64 | 4 | 16 |
+
+注意：这里的函数长度指函数编译后生成的二进制 CPU 指令序列的长度，可以用 `objdump` 等工具确认。
+
+1. **实际函数长度** < 最小函数长度：arm32 和 arm64 肯定会出问题，thumb 可能会出问题。
+2. 最小函数长度 <= **实际函数长度** < 理想函数长度：也许会出问题，也许不会。或者有时会出问题，有时不会。
+3. 理想函数长度 <= **实际函数长度**：肯定不会出问题。（仅指由于指令覆盖长度超过函数总长度引发的问题）
+
+由此可见，相对于 `shadowhook_hook_sym_addr` 来说，`shadowhook_hook_func_addr` 的可靠性较差。因此建议仅在“被 hook 函数的指令长度可控”的情况下使用，例如：
+
+1. 通过 hook 某个无符号的函数，来修复特定机型特定 OS 版本的系统库 bug。
+2. 需要 hook 的函数是由某个特定版本的 API 返回的。例如 hook 特定版本的 Unity，通过 vulkan 提供的 `vkGetInstanceProcAddr` 获取需要 hook 的函数地址。
+
+在这些“被 hook 的 ELF 文件的版本已知和可控”的情况下，即使使用 `shadowhook_hook_func_addr` 来执行 hook，我们也可以预先在开发阶段验证 hook 的稳定性。
+
+### 参数
+
+* `func_addr`（必须指定）：需要被 hook 的函数的绝对地址。
+* `new_addr`（必须指定）：新函数（proxy 函数）的绝对地址。
+* `orig_addr`（不需要的话可传 `NULL`）：返回原函数地址。
+
+### 返回值
+
+* 非 `NULL`：hook 成功。返回值是个 stub，可保存返回值，后续用于 unhook。
+* `NULL`：hook 失败。可调用 `shadowhook_get_errno` 获取 errno，可继续调用 `shadowhook_to_errmsg` 获取 error message。
+
+### 举例
+
+```C
+void *orig;
+void *func = get_hidden_func_addr();
+void *stub = shadowhook_hook_sym_addr(func, my_func, &orig);
+if(stub == NULL)
+{
+    int error_num = shadowhook_get_errno();
+    const char *error_msg = shadowhook_to_errmsg(error_num);
+    __android_log_print(ANDROID_LOG_WARN,  "test", "hook failed: %d - %s", error_num, error_msg);
+}
+```
+
+在这种方式中，`func_addr` 是由一个外部函数返回的，它在 ELF 中没有符号信息。
+
+## 3. 通过 “库名 + 函数名” hook 函数
 
 ```C
 #include "shadowhook.h"
@@ -292,7 +358,7 @@ const char *error_msg = shadowhook_to_errmsg(error_num);
 __android_log_print(ANDROID_LOG_WARN,  "test", "hook return: %p, %d - %s", stub, error_num, error_msg);
 ```
 
-## 3. 通过“库名 + 函数名”执行hook（需要 callback）
+## 4. 通过“库名 + 函数名”执行 hook（需要 callback）
 
 ```C
 #include "shadowhook.h"
@@ -333,7 +399,7 @@ void do_hook(void)
 }
 ```
 
-## 4. unhook
+## 5. unhook
 
 ```C
 #include "shadowhook.h"

@@ -1,7 +1,7 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.3-red.svg?style=flat)
+![](https://img.shields.io/badge/release-1.0.4-red.svg?style=flat)
 ![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
@@ -55,7 +55,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.3'
+    implementation 'com.bytedance.android:shadowhook:1.0.4'
 }
 ```
 
@@ -143,6 +143,11 @@ public class MySdk {
 ```C
 #include "shadowhook.h"
 
+void *shadowhook_hook_func_addr(
+    void *func_addr,
+    void *new_addr,
+    void **orig_addr);
+
 void *shadowhook_hook_sym_addr(
     void *sym_addr,
     void *new_addr,
@@ -174,8 +179,9 @@ void *shadowhook_hook_sym_name_callback(
 int shadowhook_unhook(void *stub);
 ```
 
-* `shadowhook_hook_sym_addr`：hook 某个函数地址。
-* `shadowhook_hook_sym_name`：hook 某个动态库中的某个函数符号名。
+* `shadowhook_hook_func_addr`: 通过绝对地址 hook 一个在 ELF 中没有符号信息的函数。
+* `shadowhook_hook_sym_addr`：通过绝对地址 hook 一个在 ELF 中有符号信息的函数。
+* `shadowhook_hook_sym_name`：通过符号名和 ELF 的文件名或路径名 hook 一个函数。
 * `shadowhook_hook_sym_name_callback`：和 `shadowhook_hook_sym_name` 类似，但是会在 hook 完成后调用指定的回调函数。
 * `shadowhook_unhook`：unhook。
 

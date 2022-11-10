@@ -53,7 +53,7 @@ static int sh_safe_api_level;
 
 static int sh_safe_init_func(void *handle, const char *symbol, size_t idx) {
   sh_safe_addrs[idx].target_addr = (uintptr_t)(xdl_sym(handle, symbol, NULL));
-  if (0 == sh_safe_addrs[idx].target_addr) return -1;
+  if (__predict_false(0 == sh_safe_addrs[idx].target_addr)) return -1;
   sh_safe_addrs[idx].orig_addr = 0;
   return 0;
 }
@@ -65,9 +65,11 @@ int sh_safe_init(void) {
   if (NULL == handle) return -1;
 
   int r = -1;
-  if (0 != sh_safe_init_func(handle, "pthread_getspecific", SH_SAFE_IDX_PTHREAD_GETSPECIFIC)) goto end;
-  if (0 != sh_safe_init_func(handle, "pthread_setspecific", SH_SAFE_IDX_PTHREAD_SETSPECIFIC)) goto end;
-  if (0 != sh_safe_init_func(handle, "abort", SH_SAFE_IDX_ABORT)) goto end;
+  if (__predict_false(0 != sh_safe_init_func(handle, "pthread_getspecific", SH_SAFE_IDX_PTHREAD_GETSPECIFIC)))
+    goto end;
+  if (__predict_false(0 != sh_safe_init_func(handle, "pthread_setspecific", SH_SAFE_IDX_PTHREAD_SETSPECIFIC)))
+    goto end;
+  if (__predict_false(0 != sh_safe_init_func(handle, "abort", SH_SAFE_IDX_ABORT))) goto end;
   r = 0;
 
 end:

@@ -80,14 +80,14 @@ static sh_exit_elfinfo_t sh_exit_vdso_info;  // vdso may not exist
 #pragma clang diagnostic ignored "-Wgnu-statement-expression"
 
 static void sh_exit_init_elfinfo(unsigned long type, sh_exit_elfinfo_t *info) {
-  if (NULL == getauxval) goto err;
+  if (__predict_false(NULL == getauxval)) goto err;
 
   uintptr_t val = (uintptr_t)getauxval(type);
-  if (0 == val) goto err;
+  if (__predict_false(0 == val)) goto err;
 
   // get base
   uintptr_t base = (AT_PHDR == type ? (val & (~0xffful)) : val);
-  if (0 != memcmp((void *)base, ELFMAG, SELFMAG)) goto err;
+  if (__predict_false(0 != memcmp((void *)base, ELFMAG, SELFMAG))) goto err;
 
   // ELF info
   ElfW(Ehdr) *ehdr = (ElfW(Ehdr) *)base;
@@ -102,7 +102,7 @@ static void sh_exit_init_elfinfo(unsigned long type, sh_exit_elfinfo_t *info) {
       if (min_vaddr > phdr->p_vaddr) min_vaddr = phdr->p_vaddr;
     }
   }
-  if (UINTPTR_MAX == min_vaddr || base < min_vaddr) goto err;
+  if (__predict_false(UINTPTR_MAX == min_vaddr || base < min_vaddr)) goto err;
   uintptr_t load_bias = base - min_vaddr;
 
   info->load_bias = load_bias;
@@ -131,7 +131,7 @@ void sh_exit_init(void) {
 // We store the shellcode for exit in mmaped memory near the PC.
 //
 
-static int sh_exit_alloc_out_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info *dlinfo, uint8_t *exit,
+static int sh_exit_alloc_out_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
                                      size_t exit_len, size_t range_low, size_t range_high) {
   (void)dlinfo;
 
@@ -162,7 +162,7 @@ typedef struct {
 } sh_exit_gap_t;
 #pragma clang diagnostic pop
 
-static size_t sh_exit_get_gaps(xdl_info *dlinfo, sh_exit_gap_t *gaps, size_t gaps_cap,
+static size_t sh_exit_get_gaps(xdl_info_t *dlinfo, sh_exit_gap_t *gaps, size_t gaps_cap,
                                bool elf_loaded_by_kernel) {
   size_t gaps_used = 0;
 
@@ -266,7 +266,7 @@ static bool sh_exit_is_zero(uintptr_t buf, size_t buf_len) {
   return true;
 }
 
-static int sh_exit_fill_zero(uintptr_t start, uintptr_t end, bool readable, xdl_info *dlinfo) {
+static int sh_exit_fill_zero(uintptr_t start, uintptr_t end, bool readable, xdl_info_t *dlinfo) {
   size_t size = end - start;
   bool set_prot_rwx = false;
 
@@ -290,7 +290,7 @@ static int sh_exit_fill_zero(uintptr_t start, uintptr_t end, bool readable, xdl_
   return 0;
 }
 
-static int sh_exit_try_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info *dlinfo, uint8_t *exit,
+static int sh_exit_try_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
                                         size_t exit_len, size_t range_low, size_t range_high, uintptr_t start,
                                         uintptr_t end) {
   start = SH_UTIL_MAX(start, pc - range_low);
@@ -319,7 +319,7 @@ static int sh_exit_try_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_
   return -1;
 }
 
-static int sh_exit_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info *dlinfo, uint8_t *exit,
+static int sh_exit_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
                                     size_t exit_len, size_t range_low, size_t range_high) {
   int r = -1;
   *exit_addr = 0;
@@ -382,7 +382,7 @@ static int sh_exit_free_in_library(uintptr_t exit_addr, uint8_t *exit, size_t ex
   return r;
 }
 
-int sh_exit_alloc(uintptr_t *exit_addr, uint16_t *exit_type, uintptr_t pc, xdl_info *dlinfo, uint8_t *exit,
+int sh_exit_alloc(uintptr_t *exit_addr, uint16_t *exit_type, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
                   size_t exit_len, size_t range_low, size_t range_high) {
   int r;
 

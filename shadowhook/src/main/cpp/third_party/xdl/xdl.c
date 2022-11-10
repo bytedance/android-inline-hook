@@ -792,7 +792,7 @@ static ElfW(Sym) *xdl_dsym_by_addr(void *handle, void *addr) {
   return NULL;
 }
 
-int xdl_addr(void *addr, xdl_info *info, void **cache) {
+int xdl_addr(void *addr, xdl_info_t *info, void **cache) {
   if (NULL == addr || NULL == info || NULL == cache) return 0;
 
   memset(info, 0, sizeof(Dl_info));
@@ -850,4 +850,20 @@ int xdl_iterate_phdr(int (*callback)(struct dl_phdr_info *, size_t, void *), voi
   if (NULL == callback) return 0;
 
   return xdl_iterate_phdr_impl(callback, data, flags);
+}
+
+int xdl_info(void *handle, int request, void *info) {
+  if (NULL == handle || XDL_DI_DLINFO != request || NULL == info) return -1;
+
+  xdl_t *self = (xdl_t *)handle;
+  xdl_info_t *dlinfo = (xdl_info_t *)info;
+
+  dlinfo->dli_fbase = (void *)self->load_bias;
+  dlinfo->dli_fname = self->pathname;
+  dlinfo->dli_sname = NULL;
+  dlinfo->dli_saddr = 0;
+  dlinfo->dli_ssize = 0;
+  dlinfo->dlpi_phdr = self->dlpi_phdr;
+  dlinfo->dlpi_phnum = (size_t)self->dlpi_phnum;
+  return 0;
 }

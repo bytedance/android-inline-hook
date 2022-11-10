@@ -28,6 +28,13 @@ ENTRY_GLOBAL_ARM(test_a32_helper_global)
     bx       lr
 END(test_a32_helper_global)
 
+// B A1, hidden function
+ENTRY_HIDDEN_ARM(test_hidden_func)
+    cmp      r0, r1
+    bne      test_a32_helper_hidden_tail
+    bx       lr
+END(test_hidden_func)
+
 ENTRY_HIDDEN_ARM(test_a32_helper_hidden)
     add      r0, r0, r1
     bx       lr

@@ -41,13 +41,19 @@
 #include "sh_util.h"
 #include "xdl.h"
 
+#define GOTO_ERR(errnum) \
+  do {                   \
+    r = errnum;          \
+    goto err;            \
+  } while (0)
+
 static int shadowhook_init_errno = SHADOWHOOK_ERRNO_UNINIT;
 static shadowhook_mode_t shadowhook_mode = SHADOWHOOK_MODE_SHARED;
 
 int shadowhook_init(shadowhook_mode_t mode, bool debuggable) {
   bool do_init = false;
 
-  if (SHADOWHOOK_ERRNO_UNINIT == shadowhook_init_errno) {
+  if (__predict_true(SHADOWHOOK_ERRNO_UNINIT == shadowhook_init_errno)) {
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&lock);
     if (__predict_true(SHADOWHOOK_ERRNO_UNINIT == shadowhook_init_errno)) {
@@ -60,17 +66,19 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable) {
     shadowhook_init_errno = errnum; \
     goto end;                       \
   } while (0)
-      if (0 != sh_errno_init()) GOTO_END(SHADOWHOOK_ERRNO_INIT_ERRNO);
-      if (0 != bytesig_init(SIGSEGV)) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGSEGV);
-      if (0 != bytesig_init(SIGBUS)) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGBUS);
-      if (0 != sh_enter_init()) GOTO_END(SHADOWHOOK_ERRNO_INIT_ENTER);
+
+      if (__predict_false(0 != sh_errno_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_ERRNO);
+      if (__predict_false(0 != bytesig_init(SIGSEGV))) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGSEGV);
+      if (__predict_false(0 != bytesig_init(SIGBUS))) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGBUS);
+      if (__predict_false(0 != sh_enter_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_ENTER);
       sh_exit_init();
       if (SHADOWHOOK_MODE_SHARED == shadowhook_mode) {
-        if (0 != sh_safe_init()) GOTO_END(SHADOWHOOK_ERRNO_INIT_SAFE);
-        if (0 != sh_hub_init()) GOTO_END(SHADOWHOOK_ERRNO_INIT_HUB);
+        if (__predict_false(0 != sh_safe_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_SAFE);
+        if (__predict_false(0 != sh_hub_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_HUB);
       } else {
-        if (0 != sh_linker_init()) GOTO_END(SHADOWHOOK_ERRNO_INIT_LINKER);
+        if (__predict_false(0 != sh_linker_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_LINKER);
       }
+
 #undef GOTO_END
 
       shadowhook_init_errno = SHADOWHOOK_ERRNO_OK;
@@ -109,24 +117,20 @@ const char *shadowhook_to_errmsg(int error_number) {
   return sh_errno_to_errmsg(error_number);
 }
 
-void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr) {
-  const void *caller_addr = __builtin_return_address(0);
-  SH_LOG_INFO("shadowhook: hook_sym_addr(%p, %p) ...", sym_addr, new_addr);
+static void *shadowhook_hook_addr_impl(void *sym_addr, void *new_addr, void **orig_addr,
+                                       bool ignore_symbol_check, uintptr_t caller_addr) {
+  SH_LOG_INFO("shadowhook: hook_%s_addr(%p, %p) ...", ignore_symbol_check ? "func" : "sym", sym_addr,
+              new_addr);
   sh_errno_reset();
-
-#define GOTO_ERR(errnum) \
-  do {                   \
-    r = errnum;          \
-    goto err;            \
-  } while (0)
 
   int r;
   if (NULL == sym_addr || NULL == new_addr) GOTO_ERR(SHADOWHOOK_ERRNO_INVALID_ARG);
   if (SHADOWHOOK_ERRNO_OK != shadowhook_init_errno) GOTO_ERR(shadowhook_init_errno);
 
   // create task
-  sh_task_t *task = sh_task_create_by_target_addr((uintptr_t)sym_addr, (uintptr_t)new_addr,
-                                                  (uintptr_t *)orig_addr, (uintptr_t)caller_addr);
+  sh_task_t *task =
+      sh_task_create_by_target_addr((uintptr_t)sym_addr, (uintptr_t)new_addr, (uintptr_t *)orig_addr,
+                                    ignore_symbol_check, (uintptr_t)caller_addr);
   if (NULL == task) GOTO_ERR(SHADOWHOOK_ERRNO_OOM);
 
   // do hook
@@ -136,16 +140,25 @@ void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr)
     GOTO_ERR(r);
   }
 
-#undef GOTO_ERR
-
   // OK
-  SH_LOG_INFO("shadowhook: hook_sym_addr(%p, %p) OK. return: %p", sym_addr, new_addr, (void *)task);
+  SH_LOG_INFO("shadowhook: hook_%s_addr(%p, %p) OK. return: %p", ignore_symbol_check ? "func" : "sym",
+              sym_addr, new_addr, (void *)task);
   SH_ERRNO_SET_RET(SHADOWHOOK_ERRNO_OK, (void *)task);
 
 err:
-  SH_LOG_ERROR("shadowhook: hook_sym_addr(%p, %p) FAILED. %d - %s", sym_addr, new_addr, r,
-               sh_errno_to_errmsg(r));
+  SH_LOG_ERROR("shadowhook: hook_%s_addr(%p, %p) FAILED. %d - %s", ignore_symbol_check ? "func" : "sym",
+               sym_addr, new_addr, r, sh_errno_to_errmsg(r));
   SH_ERRNO_SET_RET_NULL(r);
+}
+
+void *shadowhook_hook_func_addr(void *func_addr, void *new_addr, void **orig_addr) {
+  const void *caller_addr = __builtin_return_address(0);
+  return shadowhook_hook_addr_impl(func_addr, new_addr, orig_addr, true, (uintptr_t)caller_addr);
+}
+
+void *shadowhook_hook_sym_addr(void *sym_addr, void *new_addr, void **orig_addr) {
+  const void *caller_addr = __builtin_return_address(0);
+  return shadowhook_hook_addr_impl(sym_addr, new_addr, orig_addr, false, (uintptr_t)caller_addr);
 }
 
 static void *shadowhook_hook_sym_name_impl(const char *lib_name, const char *sym_name, void *new_addr,
@@ -153,12 +166,6 @@ static void *shadowhook_hook_sym_name_impl(const char *lib_name, const char *sym
                                            uintptr_t caller_addr) {
   SH_LOG_INFO("shadowhook: hook_sym_name(%s, %s, %p) ...", lib_name, sym_name, new_addr);
   sh_errno_reset();
-
-#define GOTO_ERR(errnum) \
-  do {                   \
-    r = errnum;          \
-    goto err;            \
-  } while (0)
 
   int r;
   if (NULL == lib_name || NULL == sym_name || NULL == new_addr) GOTO_ERR(SHADOWHOOK_ERRNO_INVALID_ARG);
@@ -176,8 +183,6 @@ static void *shadowhook_hook_sym_name_impl(const char *lib_name, const char *sym
     sh_task_destroy(task);
     GOTO_ERR(r);
   }
-
-#undef GOTO_ERR
 
   // OK
   SH_LOG_INFO("shadowhook: hook_sym_name(%s, %s, %p) OK. return: %p. %d - %s", lib_name, sym_name, new_addr,
@@ -208,12 +213,6 @@ int shadowhook_unhook(void *stub) {
   SH_LOG_INFO("shadowhook: unhook(%p) ...", stub);
   sh_errno_reset();
 
-#define GOTO_ERR(errnum) \
-  do {                   \
-    r = errnum;          \
-    goto err;            \
-  } while (0)
-
   int r;
   if (NULL == stub) GOTO_ERR(SHADOWHOOK_ERRNO_INVALID_ARG);
   if (SHADOWHOOK_ERRNO_OK != shadowhook_init_errno) GOTO_ERR(shadowhook_init_errno);
@@ -222,8 +221,6 @@ int shadowhook_unhook(void *stub) {
   r = sh_task_unhook(task, (uintptr_t)caller_addr);
   sh_task_destroy(task);
   if (0 != r) GOTO_ERR(r);
-
-#undef GOTO_ERR
 
   // OK
   SH_LOG_INFO("shadowhook: unhook(%p) OK", stub);

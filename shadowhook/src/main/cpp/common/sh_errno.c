@@ -32,7 +32,7 @@ static int sh_errno_global = SHADOWHOOK_ERRNO_UNINIT;
 static pthread_key_t sh_errno_tls_key;
 
 int sh_errno_init(void) {
-  if (0 != pthread_key_create(&sh_errno_tls_key, NULL)) {
+  if (__predict_false(0 != pthread_key_create(&sh_errno_tls_key, NULL))) {
     sh_errno_global = SHADOWHOOK_ERRNO_INIT_ERRNO;
     return -1;
   }

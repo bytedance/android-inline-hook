@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.1)
+cmake_minimum_required(VERSION 3.22.1)
 project(systest)
 
 find_package(shadowhook REQUIRED CONFIG)
@@ -6,8 +6,8 @@ find_package(shadowhook REQUIRED CONFIG)
 set(TARGET "shadowhooksystest")
 file(GLOB SRC *.c)
 add_library(${TARGET} SHARED ${SRC})
-target_compile_features(${TARGET} PUBLIC c_std_11)
-target_compile_options(${TARGET} PUBLIC -Weverything -Werror -Wno-unused-function)
+target_compile_features(${TARGET} PUBLIC c_std_17)
+target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror -Wno-unused-function)
 target_include_directories(${TARGET} PUBLIC .)
 target_link_libraries(${TARGET} log shadowhook::shadowhook)
 

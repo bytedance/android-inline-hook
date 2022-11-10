@@ -45,6 +45,9 @@ void sh_log_set_debuggable(bool debuggable) {
   (void)debuggable;
   sh_log_priority = ANDROID_LOG_INFO;
 #else
-  sh_log_priority = (debuggable ? ANDROID_LOG_INFO : ANDROID_LOG_SILENT);
+  if (__predict_false(debuggable))
+    sh_log_priority = ANDROID_LOG_INFO;
+  else
+    sh_log_priority = ANDROID_LOG_SILENT;
 #endif
 }
