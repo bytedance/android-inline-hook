@@ -54,6 +54,7 @@ uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mem_mgr, uintptr_t hint, uintptr_t ra
   size_t count = SH_TRAMPO_PAGE_SZ / mem_mgr->trampo_size;
 
   if (range_low > hint) range_low = hint;
+  if (range_high > UINTPTR_MAX - hint) range_high = UINTPTR_MAX - hint;
 
   struct timeval now;
   if (mem_mgr->delay_sec > 0) gettimeofday(&now, NULL);

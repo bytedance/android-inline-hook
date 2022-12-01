@@ -293,10 +293,14 @@ static int sh_exit_fill_zero(uintptr_t start, uintptr_t end, bool readable, xdl_
 static int sh_exit_try_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
                                         size_t exit_len, size_t range_low, size_t range_high, uintptr_t start,
                                         uintptr_t end) {
-  start = SH_UTIL_MAX(start, pc - range_low);
+  if (pc >= range_low)
+    start = SH_UTIL_MAX(start, pc - range_low);
   start = SH_UTIL_ALIGN_END(start, exit_len);
-  end = SH_UTIL_MIN(end - exit_len, pc + range_high);
+
+  if (range_high <= UINTPTR_MAX - pc)
+    end = SH_UTIL_MIN(end - exit_len, pc + range_high);
   end = SH_UTIL_ALIGN_START(end, exit_len);
+
   if (end < start) return -1;
   SH_LOG_INFO("exit: gap resize, %" PRIxPTR " - %" PRIxPTR " (load_bias %" PRIxPTR ", %" PRIxPTR
               " - %" PRIxPTR ")",
