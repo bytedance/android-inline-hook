@@ -7,6 +7,8 @@
 
 **ShadowHook** is an Android inline hook library which supports thumb, arm32 and arm64.
 
+ShadowHook is now used in TikTok, Douyin, Toutiao, Xigua Video, Lark.
+
 If you need an Android PLT hook library, please move to [ByteHook](https://github.com/bytedance/bhook).
 
 

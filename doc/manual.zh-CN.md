@@ -7,6 +7,8 @@
 
 **ShadowHook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
 
+ShadowHook 现在被用于 TikTok，抖音，今日头条, 西瓜视频，飞书中。
+
 如果你需要的是 Android PLT hook 库，请移步到 [ByteHook](https://github.com/bytedance/bhook)。
 
 
