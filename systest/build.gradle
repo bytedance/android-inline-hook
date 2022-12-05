@@ -62,13 +62,3 @@ dependencies {
         implementation 'com.bytedance.android:shadowhook:' + rootProject.ext.shadowhookVersion
     }
 }
-
-if (rootProject.ext.dependencyOnLocalLibrary) {
-    tasks.whenTaskAdded { task ->
-        if (task.name == 'preDebugBuild') {
-            task.dependsOn(':shadowhook:prefabDebugConfigurePackage')
-        } else if (task.name == 'preReleaseBuild') {
-            task.dependsOn(':shadowhook:prefabReleaseConfigurePackage')
-        }
-    }
-}
