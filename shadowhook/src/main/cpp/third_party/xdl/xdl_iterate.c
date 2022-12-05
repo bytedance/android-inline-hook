@@ -212,21 +212,66 @@ static int xdl_iterate_by_maps(xdl_iterate_phdr_cb_t cb, void *cb_arg) {
   if (NULL == maps) return 0;
 
   int r = 0;
-  char line[1024];
-  while (fgets(line, sizeof(line), maps)) {
-    // Try to find an ELF which loaded by linker. This is almost always correct in android 4.x.
+  char buf1[1024], buf2[1024];
+  char *line = buf1;
+  uintptr_t prev_base = 0;
+  bool try_next_line = false;
+
+  while (fgets(line, sizeof(buf1), maps)) {
+    // Try to find an ELF which loaded by linker.
     uintptr_t base, offset;
-    if (2 != sscanf(line, "%" SCNxPTR "-%*" SCNxPTR " r%*cxp %" SCNxPTR " ", &base, &offset)) continue;
-    if (0 != offset) continue;
-    if (0 != memcmp((void *)base, ELFMAG, SELFMAG)) continue;
+    char exec;
+    if (3 != sscanf(line, "%" SCNxPTR "-%*" SCNxPTR " r%*c%cp %" SCNxPTR " ", &base, &exec, &offset)) goto clean;
 
-    // get pathname
-    char *pathname = strchr(line, '/');
-    if (NULL == pathname) continue;
-    xdl_util_trim_ending(pathname);
+    if ('-' == exec && 0 == offset) {
+      // r--p
+      prev_base = base;
+      line = (line == buf1 ? buf2 : buf1);
+      try_next_line = true;
+      continue;
+    }
+    else if (exec == 'x') {
+      // r-xp
+      char *pathname = NULL;
+      if (try_next_line && 0 != offset) {
+        char *prev = (line == buf1 ? buf2 : buf1);
+        char *prev_pathname = strchr(prev, '/');
+        if (NULL == prev_pathname) goto clean;
 
-    // callback
-    if (0 != (r = xdl_iterate_do_callback(cb, cb_arg, base, pathname, NULL))) break;
+        pathname = strchr(line, '/');
+        if (NULL == pathname) goto clean;
+
+        xdl_util_trim_ending(prev_pathname);
+        xdl_util_trim_ending(pathname);
+        if (0 != strcmp(prev_pathname, pathname)) goto clean;
+
+        // we found the line with r-xp in the next line
+        base = prev_base;
+        offset = 0;
+      }
+
+      if (0 != offset) goto clean;
+
+      // get pathname
+      if (NULL == pathname) {
+        pathname = strchr(line, '/');
+        if (NULL == pathname) goto clean;
+        xdl_util_trim_ending(pathname);
+      }
+
+      if (0 != memcmp((void *)base, ELFMAG, SELFMAG)) goto clean;
+      ElfW(Ehdr) *ehdr = (ElfW(Ehdr) *)base;
+      struct dl_phdr_info info;
+      info.dlpi_name = pathname;
+      info.dlpi_phdr = (const ElfW(Phdr) *)(base + ehdr->e_phoff);
+      info.dlpi_phnum = ehdr->e_phnum;
+
+      // callback
+      if (0 != (r = xdl_iterate_do_callback(cb, cb_arg, base, pathname, NULL))) break;
+    }
+
+ clean:
+    try_next_line = false;
   }
 
   fclose(maps);
