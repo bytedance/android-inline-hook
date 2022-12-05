@@ -41,11 +41,7 @@ public final class ShadowHook {
     private static final boolean defaultDebuggable = false;
 
     public static int init() {
-        if (inited) {
-            return initErrno;
-        }
-
-        return init(new ConfigBuilder().build());
+        return init(null);
     }
 
     public static synchronized int init(Config config) {
@@ -55,6 +51,11 @@ public final class ShadowHook {
         inited = true;
 
         long start = System.currentTimeMillis();
+
+        if (config == null) {
+            //use default parameters
+            config = new ConfigBuilder().build();
+        }
 
         if (!loadLibrary(config)) {
             initErrno = ERRNO_LOAD_LIBRARY_EXCEPTION;
