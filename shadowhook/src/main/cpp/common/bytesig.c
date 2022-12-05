@@ -60,11 +60,7 @@ static bytesig_libc_sigprocmask_t bytesig_libc_sigprocmask = NULL;
 static bytesig_libc_sigaction64_t bytesig_libc_sigaction64 = NULL;
 static bytesig_libc_sigaction_t bytesig_libc_sigaction = NULL;
 
-static int bytesig_load_symbol(void) {
-  static int loaded = -1;  // -1: unload, 0: OK, 1: Failed
-
-  if (loaded >= 0) return loaded;
-
+__attribute__((constructor)) static void bytesig_ctor(void) {
   void *libc = dlopen("libc.so", RTLD_LOCAL);
   if (__predict_true(NULL != libc)) {
     // sigprocmask64() / sigprocmask()
@@ -79,12 +75,12 @@ static int bytesig_load_symbol(void) {
 
     dlclose(libc);
   }
+}
 
-  loaded = (((NULL == bytesig_libc_sigprocmask64 && NULL == bytesig_libc_sigprocmask) ||
-             (NULL == bytesig_libc_sigaction64 && NULL == bytesig_libc_sigaction))
-                ? 1
-                : 0);
-  return loaded;
+static int bytesig_check_symbols(void) {
+  if (__predict_false(NULL == bytesig_libc_sigprocmask64 && NULL == bytesig_libc_sigprocmask)) return -1;
+  if (__predict_false(NULL == bytesig_libc_sigaction64 && NULL == bytesig_libc_sigaction)) return -1;
+  return 0;
 }
 
 static int bytesig_real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
@@ -235,12 +231,12 @@ int bytesig_init(int signum) {
   if (__predict_false(signum <= 0 || signum >= __SIGRTMIN || signum == SIGKILL || signum == SIGSTOP))
     return -1;
 
+  // check symbols from bionic
+  if (__predict_false(0 != bytesig_check_symbols())) return -1;
+
   if (__predict_false(NULL != bytesig_signal_array[signum])) return -1;
   pthread_mutex_lock(&lock);
   if (__predict_false(NULL != bytesig_signal_array[signum])) goto end;
-
-  // load symbols from bionic (only once)
-  if (__predict_false(0 != bytesig_load_symbol())) goto end;
 
   bytesig_signal_t *sig = calloc(1, sizeof(bytesig_signal_t));
   if (__predict_false(NULL == sig)) goto end;
