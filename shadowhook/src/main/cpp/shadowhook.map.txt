@@ -1,7 +1,6 @@
 {
     global:
         JNI_OnLoad;
-        sh_util_clear_cache;
 
         shadowhook_init;
 
