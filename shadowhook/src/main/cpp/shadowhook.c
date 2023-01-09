@@ -25,6 +25,7 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "bytesig.h"
 #include "sh_enter.h"
@@ -290,21 +291,26 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name) {
 }
 
 void *shadowhook_get_prev_func(void *func) {
+  if (SHADOWHOOK_IS_UNIQUE_MODE) abort();
   return sh_hub_get_prev_func(func);
 }
 
 void shadowhook_pop_stack(void *return_address) {
+  if (SHADOWHOOK_IS_UNIQUE_MODE) abort();
   sh_hub_pop_stack(return_address);
 }
 
 void shadowhook_allow_reentrant(void *return_address) {
+  if (SHADOWHOOK_IS_UNIQUE_MODE) abort();
   sh_hub_allow_reentrant(return_address);
 }
 
 void shadowhook_disallow_reentrant(void *return_address) {
+  if (SHADOWHOOK_IS_UNIQUE_MODE) abort();
   sh_hub_disallow_reentrant(return_address);
 }
 
 void *shadowhook_get_return_address(void) {
+  if (SHADOWHOOK_IS_UNIQUE_MODE) abort();
   return sh_hub_get_return_address();
 }
