@@ -54,6 +54,16 @@
 #define SH_RECORDER_OUTPUT_BUF_EXPAND_STEP  (1024 * 128)
 #define SH_RECORDER_OUTPUT_BUF_MAX          (1024 * 1024)
 
+static bool sh_recorder_recordable = false;
+
+bool sh_recorder_get_recordable(void) {
+  return sh_recorder_recordable;
+}
+
+void sh_recorder_set_recordable(bool recordable) {
+  sh_recorder_recordable = recordable;
+}
+
 typedef struct {
   void *ptr;
   size_t cap;
@@ -262,6 +272,7 @@ static void sh_recorder_get_base_name_by_addr(uintptr_t addr, char *base_name, s
 int sh_recorder_add_hook(int error_number, bool is_hook_sym_addr, uintptr_t sym_addr, const char *lib_name,
                          const char *sym_name, uintptr_t new_addr, size_t backup_len, uintptr_t stub,
                          uintptr_t caller_addr) {
+  if (!sh_recorder_recordable) return 0;
   if (sh_recorder_error) return -1;
 
   // lib_name
@@ -312,6 +323,7 @@ err:
 }
 
 int sh_recorder_add_unhook(int error_number, uintptr_t stub, uintptr_t caller_addr) {
+  if (!sh_recorder_recordable) return 0;
   if (sh_recorder_error) return -1;
 
   char caller_lib_name[SH_RECORDER_LIB_NAME_MAX];
@@ -451,6 +463,7 @@ static void sh_recorder_output(char **str, int fd, uint32_t item_flags) {
 }
 
 char *sh_recorder_get(uint32_t item_flags) {
+  if (!sh_recorder_recordable) return NULL;
   if (0 == (item_flags & SHADOWHOOK_RECORD_ITEM_ALL)) return NULL;
 
   char *str = NULL;
@@ -459,12 +472,21 @@ char *sh_recorder_get(uint32_t item_flags) {
 }
 
 void sh_recorder_dump(int fd, uint32_t item_flags) {
+  if (!sh_recorder_recordable) return;
   if (0 == (item_flags & SHADOWHOOK_RECORD_ITEM_ALL)) return;
   if (fd < 0) return;
   sh_recorder_output(NULL, fd, item_flags);
 }
 
 #else
+
+bool sh_recorder_get_recordable(void) {
+  return false;
+}
+
+void sh_recorder_set_recordable(bool recordable) {
+  (void)recordable;
+}
 
 int sh_recorder_add_hook(int error_number, bool is_hook_sym_addr, uintptr_t sym_addr, const char *lib_name,
                          const char *sym_name, uintptr_t new_addr, size_t backup_len, uintptr_t stub,

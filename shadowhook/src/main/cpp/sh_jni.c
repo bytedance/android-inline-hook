@@ -44,10 +44,34 @@ static jint sh_jni_get_init_errno(JNIEnv *env, jobject thiz) {
   return shadowhook_get_init_errno();
 }
 
+static jint sh_jni_get_mode(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+
+  return SHADOWHOOK_MODE_SHARED == shadowhook_get_mode() ? 0 : 1;
+}
+
+static jboolean sh_jni_get_debuggable(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+
+  return shadowhook_get_debuggable();
+}
+
 static void sh_jni_set_debuggable(JNIEnv *env, jobject thiz, jboolean debuggable) {
   (void)env, (void)thiz;
 
   shadowhook_set_debuggable((bool)debuggable);
+}
+
+static jboolean sh_jni_get_recordable(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+
+  return shadowhook_get_recordable();
+}
+
+static void sh_jni_set_recordable(JNIEnv *env, jobject thiz, jboolean recordable) {
+  (void)env, (void)thiz;
+
+  shadowhook_set_recordable((bool)recordable);
 }
 
 static jstring sh_jni_to_errmsg(JNIEnv *env, jobject thiz, jint error_number) {
@@ -95,7 +119,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
   JNINativeMethod m[] = {{"nativeInit", "(IZ)I", (void *)sh_jni_init},
                          {"nativeGetInitErrno", "()I", (void *)sh_jni_get_init_errno},
+                         {"nativeGetMode", "()I", (void *)sh_jni_get_mode},
+                         {"nativeGetDebuggable", "()Z", (void *)sh_jni_get_debuggable},
                          {"nativeSetDebuggable", "(Z)V", (void *)sh_jni_set_debuggable},
+                         {"nativeGetRecordable", "()Z", (void *)sh_jni_get_recordable},
+                         {"nativeSetRecordable", "(Z)V", (void *)sh_jni_set_recordable},
                          {"nativeToErrmsg", "(I)Ljava/lang/String;", (void *)sh_jni_to_errmsg},
                          {"nativeGetRecords", "(I)Ljava/lang/String;", (void *)sh_jni_get_records},
                          {"nativeGetArch", "()Ljava/lang/String;", (void *)sh_jni_get_arch}};

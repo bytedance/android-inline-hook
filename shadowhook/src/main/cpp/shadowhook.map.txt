@@ -7,6 +7,8 @@
         shadowhook_get_mode;
         shadowhook_get_debuggable;
         shadowhook_set_debuggable;
+        shadowhook_get_recordable;
+        shadowhook_set_recordable;
 
         shadowhook_get_errno;
         shadowhook_to_errmsg;

@@ -87,6 +87,8 @@ int shadowhook_get_init_errno(void);
 shadowhook_mode_t shadowhook_get_mode(void);
 bool shadowhook_get_debuggable(void);
 void shadowhook_set_debuggable(bool debuggable);
+bool shadowhook_get_recordable(void);
+void shadowhook_set_recordable(bool recordable);
 
 // get error-number and error message
 int shadowhook_get_errno(void);

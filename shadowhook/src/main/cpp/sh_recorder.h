@@ -25,6 +25,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+bool sh_recorder_get_recordable(void);
+void sh_recorder_set_recordable(bool recordable);
+
 int sh_recorder_add_hook(int error_number, bool is_hook_sym_addr, uintptr_t sym_addr, const char *lib_name,
                          const char *sym_name, uintptr_t new_addr, size_t backup_len, uintptr_t stub,
                          uintptr_t caller_addr);

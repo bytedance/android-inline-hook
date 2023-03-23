@@ -39,6 +39,7 @@ public final class ShadowHook {
     private static final ILibLoader defaultLibLoader = null;
     private static final int defaultMode = Mode.SHARED.getValue();
     private static final boolean defaultDebuggable = false;
+    private static final boolean defaultRecordable = false;
 
     public static int init() {
         return init(null);
@@ -57,16 +58,27 @@ public final class ShadowHook {
             config = new ConfigBuilder().build();
         }
 
+        // load libshadowhook.so
         if (!loadLibrary(config)) {
             initErrno = ERRNO_LOAD_LIBRARY_EXCEPTION;
             initCostMs = System.currentTimeMillis() - start;
             return initErrno;
         }
 
+        // call native shadowhook_init()
         try {
             initErrno = nativeInit(config.getMode(), config.getDebuggable());
         } catch (Throwable ignored) {
             initErrno = ERRNO_INIT_EXCEPTION;
+        }
+
+        // call native shadowhook_set_recordable()
+        if (config.getRecordable()) {
+            try {
+                nativeSetRecordable(config.getRecordable());
+            } catch (Throwable ignored) {
+                initErrno = ERRNO_INIT_EXCEPTION;
+            }
         }
 
         initCostMs = System.currentTimeMillis() - start;
@@ -81,9 +93,36 @@ public final class ShadowHook {
         return initCostMs;
     }
 
+    public static Mode getMode() {
+        if (isInitedOk()) {
+            return Mode.SHARED.getValue() == nativeGetMode() ? Mode.SHARED : Mode.UNIQUE;
+        }
+        return Mode.SHARED;
+    }
+
+    public static boolean getDebuggable() {
+        if (isInitedOk()) {
+            return nativeGetDebuggable();
+        }
+        return false;
+    }
+
     public static void setDebuggable(boolean debuggable) {
         if (isInitedOk()) {
             nativeSetDebuggable(debuggable);
+        }
+    }
+
+    public static boolean getRecordable() {
+        if (isInitedOk()) {
+            return nativeGetRecordable();
+        }
+        return false;
+    }
+
+    public static void setRecordable(boolean recordable) {
+        if (isInitedOk()) {
+            nativeSetRecordable(recordable);
         }
     }
 
@@ -204,7 +243,15 @@ public final class ShadowHook {
 
     private static native int nativeGetInitErrno();
 
+    private static native int nativeGetMode();
+
+    private static native boolean nativeGetDebuggable();
+
     private static native void nativeSetDebuggable(boolean debuggable);
+
+    private static native boolean nativeGetRecordable();
+
+    private static native void nativeSetRecordable(boolean recordable);
 
     private static native String nativeToErrmsg(int errno);
 
@@ -245,6 +292,7 @@ public final class ShadowHook {
         private ILibLoader libLoader;
         private int mode;
         private boolean debuggable;
+        private boolean recordable;
 
         public Config() {
         }
@@ -272,6 +320,14 @@ public final class ShadowHook {
         public boolean getDebuggable() {
             return this.debuggable;
         }
+
+        public void setRecordable(boolean recordable) {
+            this.recordable = recordable;
+        }
+
+        public boolean getRecordable() {
+            return this.recordable;
+        }
     }
 
     public static class ConfigBuilder {
@@ -279,6 +335,7 @@ public final class ShadowHook {
         private ILibLoader libLoader = defaultLibLoader;
         private int mode = defaultMode;
         private boolean debuggable = defaultDebuggable;
+        private boolean recordable = defaultRecordable;
 
         public ConfigBuilder() {
         }
@@ -298,11 +355,17 @@ public final class ShadowHook {
             return this;
         }
 
+        public ConfigBuilder setRecordable(boolean recordable) {
+            this.recordable = recordable;
+            return this;
+        }
+
         public Config build() {
             Config config = new Config();
             config.setLibLoader(libLoader);
             config.setMode(mode);
             config.setDebuggable(debuggable);
+            config.setRecordable(recordable);
             return config;
         }
     }

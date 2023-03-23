@@ -110,6 +110,14 @@ void shadowhook_set_debuggable(bool debuggable) {
   sh_log_set_debuggable(debuggable);
 }
 
+bool shadowhook_get_recordable(void) {
+  return sh_recorder_get_recordable();
+}
+
+void shadowhook_set_recordable(bool recordable) {
+  sh_recorder_set_recordable(recordable);
+}
+
 int shadowhook_get_errno(void) {
   return sh_errno_get();
 }

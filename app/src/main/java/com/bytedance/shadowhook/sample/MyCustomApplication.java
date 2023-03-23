@@ -40,8 +40,9 @@ public class MyCustomApplication extends Application {
 //        ShadowHook.init(new ShadowHook.ConfigBuilder()
 //                .setMode(ShadowHook.Mode.UNIQUE)
 //                .setDebuggable(true)
+//                .setRecordable(true)
 //                .build());
 
-        SysTest.init(true, true);
+        SysTest.init(true, true, true);
     }
 }

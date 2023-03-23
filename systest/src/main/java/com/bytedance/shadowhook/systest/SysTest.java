@@ -31,7 +31,7 @@ public class SysTest {
     private static int initErrno = 200; // uninit
     private static final String libName = "shadowhooksystest";
 
-    public static int init(boolean sharedMode, boolean debuggable) {
+    public static int init(boolean sharedMode, boolean debuggable, boolean recordable) {
         if (inited) {
             return initErrno;
         }
@@ -41,6 +41,7 @@ public class SysTest {
         initErrno = ShadowHook.init(new ShadowHook.ConfigBuilder()
                 .setMode(sharedMode ? ShadowHook.Mode.SHARED : ShadowHook.Mode.UNIQUE)
                 .setDebuggable(debuggable)
+                .setRecordable(recordable)
                 .build());
         if(0 != initErrno) {
             return initErrno;
