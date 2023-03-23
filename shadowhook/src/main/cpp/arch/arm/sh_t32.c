@@ -149,6 +149,8 @@ static size_t sh_t32_rewrite_b(uint16_t *buf, uint16_t high_inst, uint16_t low_i
     uint32_t x =
         (s << 24u) | (i1 << 23u) | (i2 << 22u) | ((high_inst & 0x3FFu) << 12u) | ((low_inst & 0x7FEu) << 1u);
     uint32_t imm32 = SH_UTIL_SIGN_EXTEND_32(x, 25u);
+    // In BL and BLX instructions, only when the target instruction set is "arm",
+    // you need to do 4-byte alignment for PC.
     addr = SH_UTIL_ALIGN_4(pc) + imm32;  // thumb -> arm, align4
   }
   addr = sh_txx_fix_addr(addr, rinfo);
@@ -171,7 +173,7 @@ static size_t sh_t32_rewrite_b(uint16_t *buf, uint16_t high_inst, uint16_t low_i
 
 static size_t sh_t32_rewrite_adr(uint16_t *buf, uint16_t high_inst, uint16_t low_inst, uintptr_t pc,
                                  sh_t32_type_t type, sh_txx_rewrite_info_t *rinfo) {
-  uint32_t rt = SH_UTIL_GET_BITS_16(low_inst, 11, 8);  // r0 - r15
+  uint32_t rt = SH_UTIL_GET_BITS_16(low_inst, 11, 8);  // r0 - r14
   uint32_t i = SH_UTIL_GET_BIT_16(high_inst, 10);
   uint32_t imm3 = SH_UTIL_GET_BITS_16(low_inst, 14, 12);
   uint32_t imm8 = SH_UTIL_GET_BITS_16(low_inst, 7, 0);

@@ -104,6 +104,9 @@ static size_t sh_t16_rewrite_b(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_t1
     addr = SH_UTIL_SET_BIT0(addr);  // thumb -> thumb
   } else {
     // type == BX_T1
+    // BX PC
+    // PC must be even, and the "BX PC" instruction must be at a 4-byte aligned address,
+    // so the instruction set must be exchanged from "thumb" to "arm".
     addr = pc;  // thumb -> arm
   }
   addr = sh_txx_fix_addr(addr, rinfo);
@@ -154,6 +157,7 @@ static size_t sh_t16_rewrite_mov(uint16_t *buf, uint16_t inst, uintptr_t pc) {
 }
 
 static size_t sh_t16_rewrite_adr(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_txx_rewrite_info_t *rinfo) {
+  // ADR<c> <Rd>, <label>
   uint16_t rd = SH_UTIL_GET_BITS_16(inst, 10, 8);  // r0 - r7
   uint16_t imm8 = SH_UTIL_GET_BITS_16(inst, 7, 0);
   uint32_t addr = SH_UTIL_ALIGN_4(pc) + (uint32_t)(imm8 << 2u);
@@ -167,6 +171,7 @@ static size_t sh_t16_rewrite_adr(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_
 }
 
 static size_t sh_t16_rewrite_ldr(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_txx_rewrite_info_t *rinfo) {
+  // LDR<c> <Rt>, <label>
   uint16_t rt = SH_UTIL_GET_BITS_16(inst, 10, 8);  // r0 - r7
   uint16_t imm8 = SH_UTIL_GET_BITS_16(inst, 7, 0);
   uint32_t addr = SH_UTIL_ALIGN_4(pc) + (uint32_t)(imm8 << 2u);
@@ -182,6 +187,7 @@ static size_t sh_t16_rewrite_ldr(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_
 }
 
 static size_t sh_t16_rewrite_cb(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_txx_rewrite_info_t *rinfo) {
+  // CB{N}Z <Rn>, <label>
   uint16_t i = SH_UTIL_GET_BIT_16(inst, 9);
   uint16_t imm5 = SH_UTIL_GET_BITS_16(inst, 7, 3);
   uint32_t imm32 = (uint32_t)(i << 6u) | (uint32_t)(imm5 << 1u);

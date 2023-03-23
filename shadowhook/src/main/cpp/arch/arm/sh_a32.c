@@ -197,7 +197,10 @@ static size_t sh_a32_rewrite_b(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a3
     addr = SH_UTIL_SET_BIT0(pc + imm32);  // arm -> thumb
   } else {
     // type == BX_A1
-    addr = pc;  // arm -> arm, BX PC
+    // BX PC
+    // PC must be even, and the "arm" instruction must be at a 4-byte aligned address,
+    // so the instruction set must keep "arm" unchanged.
+    addr = pc;  // arm -> arm
   }
   addr = sh_a32_fix_addr(addr, rinfo);
 
@@ -265,7 +268,7 @@ static size_t sh_a32_rewrite_add_or_sub(uint32_t *buf, uint32_t inst, uintptr_t 
 static size_t sh_a32_rewrite_adr(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a32_type_t type,
                                  sh_a32_rewrite_info_t *rinfo) {
   uint32_t cond = SH_UTIL_GET_BITS_32(inst, 31, 28);
-  uint32_t rd = SH_UTIL_GET_BITS_32(inst, 15, 12);
+  uint32_t rd = SH_UTIL_GET_BITS_32(inst, 15, 12);  // r0 - r15
   uint32_t imm12 = SH_UTIL_GET_BITS_32(inst, 11, 0);
   uint32_t imm32 = sh_util_arm_expand_imm(imm12);
   uint32_t addr = (type == ADR_A1 ? (SH_UTIL_ALIGN_4(pc) + imm32) : (SH_UTIL_ALIGN_4(pc) - imm32));
