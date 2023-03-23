@@ -1,6 +1,6 @@
 plugins {
-    id 'com.android.application' version '7.2.2' apply false
-    id 'com.android.library' version '7.2.2' apply false
+    id 'com.android.application' version '7.4.2' apply false
+    id 'com.android.library' version '7.4.2' apply false
 }
 
 task clean(type: Delete) {
@@ -11,7 +11,7 @@ ext {
     minSdkVersion = 16
     compileSdkVersion = 33
     targetSdkVersion = 33
-    buildToolsVersion = '33.0.0'
+    buildToolsVersion = '33.0.2'
     javaVersion = JavaVersion.VERSION_1_7
     ndkVersion = "23.2.8568313"
     cmakeVersion = "3.22.1"
