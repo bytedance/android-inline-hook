@@ -77,10 +77,10 @@ END(test_t16_b_t2_fixaddr)
 ENTRY_GLOBAL_THUMB_BOUND(test_t16_bx_t1)
     push     {lr}
     nop
-    bx       pc
+    bx       pc // thumb -> arm
     nop
 .code 32
-    bl       test_t16_helper_global
+    blx      test_t16_helper_global // arm -> thumb
     pop      {pc}
 END(test_t16_bx_t1)
 
