@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace 'com.bytedance.shadowhook'
     compileSdkVersion rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     ndkVersion rootProject.ext.ndkVersion
@@ -51,6 +52,12 @@ android {
     prefab {
         shadowhook {
             headers "src/main/cpp/include"
+        }
+    }
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+            withJavadocJar()
         }
     }
 }

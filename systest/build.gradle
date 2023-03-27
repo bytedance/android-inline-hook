@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace 'com.bytedance.shadowhook.systest'
     compileSdkVersion rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     ndkVersion rootProject.ext.ndkVersion
