@@ -41,6 +41,10 @@ public final class ShadowHook {
     private static final boolean defaultDebuggable = false;
     private static final boolean defaultRecordable = false;
 
+    public static String getVersion() {
+        return nativeGetVersion();
+    }
+
     public static int init() {
         return init(null);
     }
@@ -238,6 +242,8 @@ public final class ShadowHook {
             return false;
         }
     }
+
+    private static native String nativeGetVersion();
 
     private static native int nativeInit(int mode, boolean debuggable);
 

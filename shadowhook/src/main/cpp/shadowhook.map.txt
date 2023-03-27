@@ -2,6 +2,8 @@
     global:
         JNI_OnLoad;
 
+        shadowhook_get_version;
+
         shadowhook_init;
 
         shadowhook_get_mode;

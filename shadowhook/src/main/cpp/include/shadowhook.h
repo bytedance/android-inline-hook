@@ -34,6 +34,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define SHADOWHOOK_VERSION "1.0.6"
+
 #define SHADOWHOOK_ERRNO_OK                     0
 #define SHADOWHOOK_ERRNO_PENDING                1
 #define SHADOWHOOK_ERRNO_UNINIT                 2
@@ -72,6 +74,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+const char *shadowhook_get_version(void);
 
 // init
 typedef enum {

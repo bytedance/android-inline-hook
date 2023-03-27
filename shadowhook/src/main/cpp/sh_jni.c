@@ -32,6 +32,11 @@
 #define SH_JNI_VERSION    JNI_VERSION_1_6
 #define SH_JNI_CLASS_NAME "com/bytedance/shadowhook/ShadowHook"
 
+static jstring sh_jni_get_version(JNIEnv *env, jobject thiz) {
+  (void)thiz;
+  return (*env)->NewStringUTF(env, shadowhook_get_version());
+}
+
 static jint sh_jni_init(JNIEnv *env, jobject thiz, jint mode, jboolean debuggable) {
   (void)env, (void)thiz;
 
@@ -117,7 +122,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   jclass cls;
   if (__predict_false(NULL == (cls = (*env)->FindClass(env, SH_JNI_CLASS_NAME)))) return JNI_ERR;
 
-  JNINativeMethod m[] = {{"nativeInit", "(IZ)I", (void *)sh_jni_init},
+  JNINativeMethod m[] = {{"nativeGetVersion", "()Ljava/lang/String;", (void *)sh_jni_get_version},
+                         {"nativeInit", "(IZ)I", (void *)sh_jni_init},
                          {"nativeGetInitErrno", "()I", (void *)sh_jni_get_init_errno},
                          {"nativeGetMode", "()I", (void *)sh_jni_get_mode},
                          {"nativeGetDebuggable", "()Z", (void *)sh_jni_get_debuggable},
