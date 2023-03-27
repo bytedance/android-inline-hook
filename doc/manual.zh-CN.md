@@ -129,11 +129,16 @@ android {
 ### 模式
 
 * `shared` 模式（默认值）：可对同一个 hook 点并发执行多个 hook 和 unhook，彼此互不干扰。自动避免代理函数之间可能形成的递归调用和环形调用。建议复杂的机构或组织使用 shared 模式。
-* `unique` 模式：同一个 hook 点只能被 hook 一次（unhook 后可以再次 hook）。需要自己处理代理函数之间可能形成的递归调用和环形调用。个人或小型的 app，或某些调试场景中（例如希望跳过shadowhook的proxy管理机制，调试分析比较单纯的inlinehook流程），可以使用该模式。
+* `unique` 模式：同一个 hook 点只能被 hook 一次（unhook 后可以再次 hook）。需要自己处理代理函数之间可能形成的递归调用和环形调用。个人或小型的 app，或某些调试场景中（例如希望跳过 ShadowHook 的 proxy 管理机制，调试分析比较单纯的 inlinehook 流程），可以使用该模式。
 
 ### 调试日志
 
 * `true`：开启。调试信息将写入 logcat。tag：`shadowhook_tag`。
+* `false`（默认值）：关闭。
+
+### 操作记录
+
+* `true`：开启。将 hook 和 unhook 操作记录写入内部 buffer。这些操作记录信息可以通过其他 API 获取。
 * `false`（默认值）：关闭。
 
 ## Java API
@@ -171,6 +176,7 @@ public class MySdk {
         ShadowHook.init(new ShadowHook.ConfigBuilder()
             .setMode(ShadowHook.Mode.SHARED)
             .setDebuggable(true)
+            .setRecordable(true)
             .build());
     }
 }
@@ -192,6 +198,39 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
 
 返回 `0` 表示成功，非 `0` 表示失败（非 `0` 值为错误码）。
 
+## 初始化相关的其他函数
+
+`模式`在初始化时指定，之后不可修改。`调试日志`和`操作记录`可以在运行时随时开启和关闭。
+
+Java API:
+
+```Java
+package com.bytedance.shadowhook;
+
+public class ShadowHook
+
+public static Mode getMode()
+
+public static boolean getDebuggable()
+public static void setDebuggable(boolean debuggable)
+
+public static boolean getRecordable()
+public static void setRecordable(boolean recordable)
+```
+
+Native API:
+
+```C
+#include "shadowhook.h"
+
+shadowhook_mode_t shadowhook_get_mode(void);
+
+bool shadowhook_get_debuggable(void);
+void shadowhook_set_debuggable(bool debuggable);
+
+bool shadowhook_get_recordable(void);
+void shadowhook_set_recordable(bool recordable);
+```
 
 # 查找符号地址
 

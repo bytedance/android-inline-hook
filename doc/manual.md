@@ -136,6 +136,11 @@ android {
 * `true`: On. Debug information will be written to logcat. tag: `shadowhook_tag`.
 * `false` (default): Off.
 
+### Operation Record
+
+* `true`：On。Write hook and unhook operation records to internal buffer. These operation record information can be obtained through other APIs.
+* `false` (default): Off.
+
 ## Java API
 
 ```Java
@@ -171,6 +176,7 @@ public class MySdk {
         ShadowHook.init(new ShadowHook.ConfigBuilder()
             .setMode(ShadowHook.Mode.SHARED)
             .setDebuggable(true)
+            .setRecordable(true)
             .build());
     }
 }
@@ -191,6 +197,40 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
 ```
 
 Returns `0` for success, non-`0` for failure (non-`0` is an error code).
+
+## Other functions related to initialization
+
+The `Mode` is specified at initialization time and cannot be modified afterwards. `Debug Log` and `Operation Record` can be turned on and off at any time during runtime.
+
+Java API:
+
+```Java
+package com.bytedance.shadowhook;
+
+public class ShadowHook
+
+public static Mode getMode()
+
+public static boolean getDebuggable()
+public static void setDebuggable(boolean debuggable)
+
+public static boolean getRecordable()
+public static void setRecordable(boolean recordable)
+```
+
+Native API:
+
+```C
+#include "shadowhook.h"
+
+shadowhook_mode_t shadowhook_get_mode(void);
+
+bool shadowhook_get_debuggable(void);
+void shadowhook_set_debuggable(bool debuggable);
+
+bool shadowhook_get_recordable(void);
+void shadowhook_set_recordable(bool recordable);
+```
 
 
 # Find symbol address
