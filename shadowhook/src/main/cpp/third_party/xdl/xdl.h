@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 HexHacking Team
+// Copyright (c) 2020-2023 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,15 +22,15 @@
 // Created by caikelun on 2020-10-04.
 
 //
-// xDL version: 1.2.1
+// xDL version: 2.0.0
 //
 // xDL is an enhanced implementation of the Android DL series functions.
 // For more information, documentation, and the latest version please check:
 // https://github.com/hexhacking/xDL
 //
 
-#ifndef IO_HEXHACKING_XDL
-#define IO_HEXHACKING_XDL
+#ifndef IO_GITHUB_HEXHACKING_XDL
+#define IO_GITHUB_HEXHACKING_XDL
 
 #include <dlfcn.h>
 #include <link.h>

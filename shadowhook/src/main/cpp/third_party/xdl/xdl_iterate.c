@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 HexHacking Team
+// Copyright (c) 2020-2023 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -221,7 +221,8 @@ static int xdl_iterate_by_maps(xdl_iterate_phdr_cb_t cb, void *cb_arg) {
     // Try to find an ELF which loaded by linker.
     uintptr_t base, offset;
     char exec;
-    if (3 != sscanf(line, "%" SCNxPTR "-%*" SCNxPTR " r%*c%cp %" SCNxPTR " ", &base, &exec, &offset)) goto clean;
+    if (3 != sscanf(line, "%" SCNxPTR "-%*" SCNxPTR " r%*c%cp %" SCNxPTR " ", &base, &exec, &offset))
+      goto clean;
 
     if ('-' == exec && 0 == offset) {
       // r--p
@@ -229,8 +230,7 @@ static int xdl_iterate_by_maps(xdl_iterate_phdr_cb_t cb, void *cb_arg) {
       line = (line == buf1 ? buf2 : buf1);
       try_next_line = true;
       continue;
-    }
-    else if (exec == 'x') {
+    } else if (exec == 'x') {
       // r-xp
       char *pathname = NULL;
       if (try_next_line && 0 != offset) {
@@ -270,7 +270,7 @@ static int xdl_iterate_by_maps(xdl_iterate_phdr_cb_t cb, void *cb_arg) {
       if (0 != (r = xdl_iterate_do_callback(cb, cb_arg, base, pathname, NULL))) break;
     }
 
- clean:
+  clean:
     try_next_line = false;
   }
 
