@@ -1,6 +1,6 @@
 # **ShadowHook Manual**
 
-[ShadowHook 手册 - 中文版](manual.zh-CN.md)
+[ShadowHook 手册 - 简体中文](manual.zh-CN.md)
 
 
 # Introduction

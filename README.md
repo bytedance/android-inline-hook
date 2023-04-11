@@ -5,7 +5,7 @@
 ![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
-[README 中文版](README.zh-CN.md)
+[**简体中文**](README.zh-CN.md)
 
 **ShadowHook** is an Android inline hook library which supports thumb, arm32 and arm64.
 

@@ -5,7 +5,7 @@
 ![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
-[README English Version](README.md)
+[**English**](README.md)
 
 **ShadowHook** 是一个 Android inline hook 库，它支持 thumb、arm32 和 arm64。
 
