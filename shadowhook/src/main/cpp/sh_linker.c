@@ -48,7 +48,7 @@
 #define SH_LINKER_SYM_DO_DLOPEN_N "__dl__Z9do_dlopenPKciPK17android_dlextinfoPv"
 #define SH_LINKER_SYM_DO_DLOPEN_O "__dl__Z9do_dlopenPKciPK17android_dlextinfoPKv"
 
-static bool sh_linker_hooked = false;
+static bool sh_linker_dlopen_hooked = false;
 
 static sh_linker_post_dlopen_t sh_linker_post_dlopen;
 static void *sh_linker_post_dlopen_arg;
@@ -73,6 +73,37 @@ __attribute__((constructor)) static void sh_linker_ctor(void) {
   sh_linker_dlfcn[4] = (uintptr_t)dlclose;
   sh_linker_dlfcn[5] = (uintptr_t)dl_unwind_find_exidx;
 #endif
+}
+
+static void *sh_linker_get_base_addr(xdl_info_t *dlinfo) {
+  uintptr_t vaddr_min = UINTPTR_MAX;
+  for (size_t i = 0; i < dlinfo->dlpi_phnum; i++) {
+    const ElfW(Phdr) *phdr = &(dlinfo->dlpi_phdr[i]);
+    if (PT_LOAD == phdr->p_type && vaddr_min > phdr->p_vaddr) vaddr_min = phdr->p_vaddr;
+  }
+
+  if (UINTPTR_MAX == vaddr_min)
+    return dlinfo->dli_fbase;  // should not happen
+  else
+    return (void *)((uintptr_t)dlinfo->dli_fbase + SH_UTIL_PAGE_START(vaddr_min));
+}
+
+static bool sh_linker_check_arch(xdl_info_t *dlinfo) {
+  ElfW(Ehdr) *ehdr = (ElfW(Ehdr) *)sh_linker_get_base_addr(dlinfo);
+
+#if defined(__LP64__)
+#define SH_LINKER_ELF_CLASS   ELFCLASS64
+#define SH_LINKER_ELF_MACHINE EM_AARCH64
+#else
+#define SH_LINKER_ELF_CLASS   ELFCLASS32
+#define SH_LINKER_ELF_MACHINE EM_ARM
+#endif
+
+  if (0 != memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) return false;
+  if (SH_LINKER_ELF_CLASS != ehdr->e_ident[EI_CLASS]) return false;
+  if (SH_LINKER_ELF_MACHINE != ehdr->e_machine) return false;
+
+  return true;
 }
 
 int sh_linker_init(void) {
@@ -121,7 +152,7 @@ const char *sh_linker_match_dlfcn(uintptr_t target_addr) {
 }
 
 bool sh_linker_need_to_hook_dlopen(uintptr_t target_addr) {
-  return SHADOWHOOK_IS_UNIQUE_MODE && !sh_linker_hooked && target_addr == sh_linker_dlopen_addr;
+  return SHADOWHOOK_IS_UNIQUE_MODE && !sh_linker_dlopen_hooked && target_addr == sh_linker_dlopen_addr;
 }
 
 typedef void *(*sh_linker_proxy_dlopen_t)(const char *, int);
@@ -174,11 +205,14 @@ static void *sh_linker_proxy_do_dlopen_n(const char *name, int flags, const void
 
 int sh_linker_hook_dlopen(sh_linker_post_dlopen_t post_dlopen, void *post_dlopen_arg) {
   static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-  static int hook_result = SHADOWHOOK_ERRNO_MONITOR_DLOPEN;
+  static int result = SHADOWHOOK_ERRNO_MONITOR_DLOPEN;
 
-  if (sh_linker_hooked) return hook_result;
+  if (sh_linker_dlopen_hooked) return result;
   pthread_mutex_lock(&lock);
-  if (sh_linker_hooked) goto end;
+  if (sh_linker_dlopen_hooked) goto end;
+
+  // try hooking-dlopen only once
+  sh_linker_dlopen_hooked = true;
 
   // do init for SHARED mode
   if (SHADOWHOOK_IS_SHARED_MODE)
@@ -193,18 +227,31 @@ int sh_linker_hook_dlopen(sh_linker_post_dlopen_t post_dlopen, void *post_dlopen
       SHADOWHOOK_IS_SHARED_MODE ? sh_switch_hook : sh_switch_hook_invisible;
   int api_level = sh_util_get_api_level();
   size_t backup_len = 0;
-  int hook_r;
+  int r;
   if (api_level < __ANDROID_API_L__) {
-    if (sh_linker_get_dlinfo_by_addr((void *)sh_linker_dlopen_addr, &sh_linker_dlopen_dlinfo, NULL, 0, NULL,
-                                     0, false))
-      goto end;
-    hook_r = hook(sh_linker_dlopen_addr, (uintptr_t)sh_linker_proxy_dlopen,
-                  (uintptr_t *)&sh_linker_orig_dlopen, &backup_len, &sh_linker_dlopen_dlinfo);
-    sh_recorder_add_hook(hook_r, true, sh_linker_dlopen_addr, SH_LINKER_BASENAME, "dlopen",
+    // get & check dlinfo
+    r = sh_linker_get_dlinfo_by_addr((void *)sh_linker_dlopen_addr, &sh_linker_dlopen_dlinfo, NULL, 0, NULL,
+                                     0, false);
+    if (SHADOWHOOK_ERRNO_LINKER_ARCH_MISMATCH == r) result = SHADOWHOOK_ERRNO_LINKER_ARCH_MISMATCH;
+    if (0 != r) goto end;
+
+    // hook
+    r = hook(sh_linker_dlopen_addr, (uintptr_t)sh_linker_proxy_dlopen, (uintptr_t *)&sh_linker_orig_dlopen,
+             &backup_len, &sh_linker_dlopen_dlinfo);
+
+    // record
+    sh_recorder_add_hook(r, true, sh_linker_dlopen_addr, SH_LINKER_BASENAME, "dlopen",
                          (uintptr_t)sh_linker_proxy_dlopen, backup_len, UINTPTR_MAX,
                          (uintptr_t)(__builtin_return_address(0)));
-    if (0 != hook_r) goto end;
+
+    if (0 != r) goto end;
   } else {
+    // check dlinfo
+    if (!sh_linker_check_arch(&sh_linker_dlopen_dlinfo)) {
+      result = SHADOWHOOK_ERRNO_LINKER_ARCH_MISMATCH;
+      goto end;
+    }
+
     uintptr_t proxy;
     uintptr_t *orig;
     if (api_level >= __ANDROID_API_N__) {
@@ -217,25 +264,24 @@ int sh_linker_hook_dlopen(sh_linker_post_dlopen_t post_dlopen, void *post_dlopen
 
     // hook
     pthread_mutex_lock(sh_linker_g_dl_mutex);
-    hook_r = hook(sh_linker_dlopen_addr, proxy, orig, &backup_len, &sh_linker_dlopen_dlinfo);
+    r = hook(sh_linker_dlopen_addr, proxy, orig, &backup_len, &sh_linker_dlopen_dlinfo);
     pthread_mutex_unlock(sh_linker_g_dl_mutex);
 
     // record
-    sh_recorder_add_hook(hook_r, true, sh_linker_dlopen_addr, SH_LINKER_BASENAME,
+    sh_recorder_add_hook(r, true, sh_linker_dlopen_addr, SH_LINKER_BASENAME,
                          sh_linker_dlopen_dlinfo.dli_sname, proxy, backup_len, UINTPTR_MAX,
                          (uintptr_t)(__builtin_return_address(0)));
 
-    if (0 != hook_r) goto end;
+    if (0 != r) goto end;
   }
 
   // OK
-  hook_result = 0;
-  sh_linker_hooked = true;
+  result = 0;
 
 end:
   pthread_mutex_unlock(&lock);
-  SH_LOG_INFO("linker: hook dlopen %s, return: %d", 0 == hook_result ? "OK" : "FAILED", hook_result);
-  return hook_result;
+  SH_LOG_INFO("linker: hook dlopen %s, return: %d", 0 == result ? "OK" : "FAILED", result);
+  return result;
 }
 
 int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name, size_t lib_name_sz,
@@ -267,6 +313,10 @@ int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name,
   }
   if (0 == r || NULL == dlinfo->dli_fname) {
     r = SHADOWHOOK_ERRNO_HOOK_DLINFO;
+    goto end;
+  }
+  if (!sh_linker_check_arch(dlinfo)) {
+    r = SHADOWHOOK_ERRNO_ELF_ARCH_MISMATCH;
     goto end;
   }
 
@@ -323,6 +373,12 @@ int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name,
 
   // get dlinfo
   xdl_info(handle, XDL_DI_DLINFO, (void *)dlinfo);
+
+  // check error
+  if (!sh_linker_check_arch(dlinfo)) {
+    xdl_close(handle);
+    return SHADOWHOOK_ERRNO_ELF_ARCH_MISMATCH;
+  }
 
   // lookup symbol address
   crashed = false;

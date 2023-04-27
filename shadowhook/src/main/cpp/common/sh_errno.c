@@ -97,7 +97,9 @@ const char *sh_errno_to_errmsg(int error_number) {
                               /* 30 */ "Exit instruction mismatch",
                               /* 31 */ "Free exit crashed",
                               /* 32 */ "Unhook on an error status task",
-                              /* 33 */ "Unhook on an unfinished task"};
+                              /* 33 */ "Unhook on an unfinished task",
+                              /* 34 */ "ELF with an unsupported architecture",
+                              /* 35 */ "Linker with an unsupported architecture"};
 
   if (error_number < 0 || error_number >= (int)(sizeof(msg) / sizeof(msg[0]))) return "Unknown error number";
 

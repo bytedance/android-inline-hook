@@ -52,7 +52,7 @@ static int shadowhook_init_errno = SHADOWHOOK_ERRNO_UNINIT;
 static shadowhook_mode_t shadowhook_mode = SHADOWHOOK_MODE_SHARED;
 
 const char *shadowhook_get_version(void) {
-  return "shadowhook version "SHADOWHOOK_VERSION;
+  return "shadowhook version " SHADOWHOOK_VERSION;
 }
 
 int shadowhook_init(shadowhook_mode_t mode, bool debuggable) {
@@ -93,8 +93,8 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable) {
   }
 
   SH_LOG_ALWAYS_SHOW("%s: shadowhook init(mode: %s, debuggable: %s), return: %d, real-init: %s",
-                     shadowhook_get_version(), SHADOWHOOK_MODE_SHARED == mode ? "SHARED" : "UNIQUE", debuggable ? "true" : "false",
-                     shadowhook_init_errno, do_init ? "yes" : "no");
+                     shadowhook_get_version(), SHADOWHOOK_MODE_SHARED == mode ? "SHARED" : "UNIQUE",
+                     debuggable ? "true" : "false", shadowhook_init_errno, do_init ? "yes" : "no");
   SH_ERRNO_SET_RET_ERRNUM(shadowhook_init_errno);
 }
 

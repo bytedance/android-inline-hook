@@ -195,8 +195,8 @@ static uint64_t sh_recorder_get_timestamp_ms(void) {
     // and will crash when encountering concurrent setenv() calls.
     // We really encountered.
     sh_recorder_tz = 0;
-//    struct tm tm;
-//    if (NULL != localtime_r((time_t *)(&(tv.tv_sec)), &tm)) sh_recorder_tz = tm.tm_gmtoff;
+    //    struct tm tm;
+    //    if (NULL != localtime_r((time_t *)(&(tv.tv_sec)), &tm)) sh_recorder_tz = tm.tm_gmtoff;
   }
 
   return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
