@@ -169,7 +169,7 @@ class ShadowhookStackScope {
  private:
   void *return_address_;
 };
-#define SHADOWHOOK_STACK_SCOPE() ShadowhookStackScope __shadowhook_stack_scope(__builtin_return_address(0))
+#define SHADOWHOOK_STACK_SCOPE() ShadowhookStackScope shadowhook_stack_scope_obj(__builtin_return_address(0))
 #endif
 
 // allow reentrant of the current proxy-function
