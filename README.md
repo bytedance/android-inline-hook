@@ -1,7 +1,7 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.6-red.svg?style=flat)
+![](https://img.shields.io/badge/release-1.0.7-red.svg?style=flat)
 ![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.6'
+    implementation 'com.bytedance.android:shadowhook:1.0.7'
 }
 ```
 
@@ -245,4 +245,4 @@ BSD 3-Clause License
 Copyright (c) 2005-2011 Google Inc.
 * [xDL](https://github.com/hexhacking/xDL)  
 MIT License  
-Copyright (c) 2020-2021 HexHacking Team
+Copyright (c) 2020-2023 HexHacking Team
