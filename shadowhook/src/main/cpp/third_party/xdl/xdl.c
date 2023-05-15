@@ -674,7 +674,7 @@ void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
  * abcd.llvm.10190306339727611508  abcd.                        N
  * abcd.llvm.10190306339727611508  abcd.llvm                    Y
  * abcd.llvm.10190306339727611508  abcd.llvm.                   N
- * abcd.__uniq.513291356003753     abcd.__uniq.51329            Y
+ * abcd.__uniq.513291356003753     abcd.__uniq.51329            N
  * abcd.__uniq.513291356003753     abcd.__uniq.513291356003753  Y
  */
 // clang-format on
