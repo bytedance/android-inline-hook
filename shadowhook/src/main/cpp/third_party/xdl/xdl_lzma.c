@@ -25,6 +25,7 @@
 
 #include <ctype.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -127,10 +128,15 @@ int xdl_lzma_decompress(uint8_t *src, size_t src_size, uint8_t **dst, size_t *ds
   int api_level = xdl_util_get_api_level();
 
   // init and check
+  static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   static bool inited = false;
   if (!inited) {
-    xdl_lzma_init();
-    inited = true;
+    pthread_mutex_lock(&lock);
+    if (!inited) {
+      xdl_lzma_init();
+      inited = true;
+    }
+    pthread_mutex_unlock(&lock);
   }
   if (NULL == xdl_lzma_code) return -1;
 

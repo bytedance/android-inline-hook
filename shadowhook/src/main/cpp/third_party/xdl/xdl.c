@@ -68,7 +68,7 @@ typedef struct xdl {
   ElfW(Half) dlpi_phnum;
 
   struct xdl *next;     // to next xdl obj for cache in xdl_addr()
-  void *linker_handle;  // hold handle returned by xdl_linker_load()
+  void *linker_handle;  // hold handle returned by xdl_linker_force_dlopen()
 
   //
   // (1) for searching symbols from .dynsym
@@ -383,7 +383,7 @@ end:
 }
 
 static xdl_t *xdl_find_from_auxv(unsigned long type, const char *pathname) {
-  if (NULL == getauxval) return NULL;
+  if (NULL == getauxval) return NULL;  // API level < 18
 
   uintptr_t val = (uintptr_t)getauxval(type);
   if (0 == val) return NULL;
@@ -497,7 +497,7 @@ static xdl_t *xdl_find(const char *filename) {
 
 static void *xdl_open_always_force(const char *filename) {
   // always force dlopen()
-  void *linker_handle = xdl_linker_load(filename);
+  void *linker_handle = xdl_linker_force_dlopen(filename);
   if (NULL == linker_handle) return NULL;
 
   // find
@@ -516,7 +516,7 @@ static void *xdl_open_try_force(const char *filename) {
   if (NULL != self) return (void *)self;
 
   // try force dlopen()
-  void *linker_handle = xdl_linker_load(filename);
+  void *linker_handle = xdl_linker_force_dlopen(filename);
   if (NULL == linker_handle) return NULL;
 
   // find again
@@ -651,6 +651,46 @@ void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
   return (void *)(self->load_bias + sym->st_value);
 }
 
+// clang-format off
+/*
+ * For internal symbols in .symtab, LLVM may add some suffixes (for example for thinLTO).
+ * The format of the suffix is: ".xxxx.[hash]". LLVM may add multiple suffixes at once.
+ * The symbol name after removing these all suffixes is called canonical name.
+ *
+ * Because the hash part in the suffix may change when recompiled, so here we only match
+ * the canonical name.
+ *
+ * IN ADDITION: According to C/C++ syntax, it is illegal for a function name to contain
+ * dot character('.'), either in the middle or at the end.
+ *
+ * samples:
+ *
+ * symbol name in .symtab          lookup                       is match
+ * ----------------------          ----------------             --------
+ * abcd                            abc                          N
+ * abcd                            abcd                         Y
+ * abcd.llvm.10190306339727611508  abc                          N
+ * abcd.llvm.10190306339727611508  abcd                         Y
+ * abcd.llvm.10190306339727611508  abcd.                        N
+ * abcd.llvm.10190306339727611508  abcd.llvm                    Y
+ * abcd.llvm.10190306339727611508  abcd.llvm.                   N
+ * abcd.__uniq.513291356003753     abcd.__uniq.51329            Y
+ * abcd.__uniq.513291356003753     abcd.__uniq.513291356003753  Y
+ */
+// clang-format on
+static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t str_len) {
+  if (__predict_false(0 == str_len)) return false;
+
+  do {
+    if (*str != *sym) return __predict_false('.' == *str && '\0' == *sym);
+    str++;
+    sym++;
+    if ('\0' == *str) break;
+  } while (0 != --str_len);
+
+  return true;
+}
+
 void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
   if (NULL == handle || NULL == symbol) return NULL;
   if (NULL != symbol_size) *symbol_size = 0;
@@ -669,7 +709,8 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
     ElfW(Sym) *sym = self->symtab + i;
 
     if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) continue;
-    if (0 != strncmp(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
+    // if (0 != strncmp(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
+    if (!xdl_dsym_is_match(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
 
     if (NULL != symbol_size) *symbol_size = sym->st_size;
     return (void *)(self->load_bias + sym->st_value);

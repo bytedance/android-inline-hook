@@ -61,11 +61,8 @@ static const char *xdl_linker_vendor_path[] = {
     "/vendor/" XDL_LINKER_LIB "/",         "/odm/" XDL_LINKER_LIB "/",
     "/vendor/" XDL_LINKER_LIB "/vndk-sp/", "/odm/" XDL_LINKER_LIB "/vndk-sp/"};
 
-static void xdl_linker_init(void) {
-  static bool inited = false;
-  if (inited) return;
-  inited = true;
-
+static void xdl_linker_init_symbols_impl(void) {
+  // find linker from: /proc/self/maps (API level < 18) or getauxval (API level >= 18)
   void *handle = xdl_open(XDL_UTIL_LINKER_BASENAME, XDL_DEFAULT);
   if (NULL == handle) return;
 
@@ -91,8 +88,21 @@ static void xdl_linker_init(void) {
   xdl_close(handle);
 }
 
+static void xdl_linker_init_symbols(void) {
+  static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+  static bool inited = false;
+  if (!inited) {
+    pthread_mutex_lock(&lock);
+    if (!inited) {
+      xdl_linker_init_symbols_impl();
+      inited = true;
+    }
+    pthread_mutex_unlock(&lock);
+  }
+}
+
 void xdl_linker_lock(void) {
-  xdl_linker_init();
+  xdl_linker_init_symbols();
 
   if (NULL != xdl_linker_mutex) pthread_mutex_lock(xdl_linker_mutex);
 }
@@ -143,23 +153,34 @@ static int xdl_linker_get_caller_addr_cb(struct dl_phdr_info *info, size_t size,
   }
 }
 
-static void xdl_linker_load_caller_addr(void) {
-  if (NULL == xdl_linker_caller_addr[0]) {
-    size_t vendor_match = sizeof(xdl_linker_vendor_path) / sizeof(xdl_linker_vendor_path[0]);
-    xdl_iterate_phdr_impl(xdl_linker_get_caller_addr_cb, &vendor_match, XDL_DEFAULT);
+static void xdl_linker_init_caller_addr_impl(void) {
+  size_t vendor_match = sizeof(xdl_linker_vendor_path) / sizeof(xdl_linker_vendor_path[0]);
+  xdl_iterate_phdr_impl(xdl_linker_get_caller_addr_cb, &vendor_match, XDL_DEFAULT);
+}
+
+static void xdl_linker_init_caller_addr(void) {
+  static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+  static bool inited = false;
+  if (!inited) {
+    pthread_mutex_lock(&lock);
+    if (!inited) {
+      xdl_linker_init_caller_addr_impl();
+      inited = true;
+    }
+    pthread_mutex_unlock(&lock);
   }
 }
 
-void *xdl_linker_load(const char *filename) {
+void *xdl_linker_force_dlopen(const char *filename) {
   int api_level = xdl_util_get_api_level();
 
   if (api_level <= __ANDROID_API_M__) {
     // <= Android 6.0
     return dlopen(filename, RTLD_NOW);
   } else {
-    xdl_linker_init();
+    xdl_linker_init_symbols();
     if (NULL == xdl_linker_dlopen) return NULL;
-    xdl_linker_load_caller_addr();
+    xdl_linker_init_caller_addr();
 
     void *handle = NULL;
     if (__ANDROID_API_N__ == api_level || __ANDROID_API_N_MR1__ == api_level) {

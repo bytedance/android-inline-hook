@@ -31,7 +31,7 @@ extern "C" {
 void xdl_linker_lock(void);
 void xdl_linker_unlock(void);
 
-void *xdl_linker_load(const char *filename);
+void *xdl_linker_force_dlopen(const char *filename);
 
 #ifdef __cplusplus
 }
