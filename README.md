@@ -1,8 +1,8 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.7-red.svg?style=flat)
-![](https://img.shields.io/badge/Android-4.1%20--%2013-blue.svg?style=flat)
+![](https://img.shields.io/badge/release-1.0.8-red.svg?style=flat)
+![](https://img.shields.io/badge/Android-4.1%20--%2014-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
 [**简体中文**](README.zh-CN.md)
@@ -16,7 +16,7 @@ If you need an Android PLT hook library, please move to [ByteHook](https://githu
 
 ## Features
 
-* Support Android 4.1 - 13 (API level 16 - 33).
+* Support Android 4.1 - 14 (API level 16 - 34).
 * Support armeabi-v7a and arm64-v8a.
 * Support hook for the whole function, but does not support hook for the middle position of the function.
 * Support to specify the hook location by "function address" or "library name + function name".
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.7'
+    implementation 'com.bytedance.android:shadowhook:1.0.8'
 }
 ```
 
