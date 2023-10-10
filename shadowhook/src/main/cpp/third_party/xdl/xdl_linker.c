@@ -38,28 +38,50 @@
 #define XDL_LINKER_SYM_DLOPEN_O        "__dl__Z8__dlopenPKciPKv"
 #define XDL_LINKER_SYM_LOADER_DLOPEN_P "__loader_dlopen"
 
+#ifndef __LP64__
+#define LIB "lib"
+#else
+#define LIB "lib64"
+#endif
+
 typedef void *(*xdl_linker_dlopen_n_t)(const char *, int, const void *, void *);
 typedef void *(*xdl_linker_dlopen_o_t)(const char *, int, const void *);
 
 static pthread_mutex_t *xdl_linker_mutex = NULL;
 static void *xdl_linker_dlopen = NULL;
 
-static void *xdl_linker_caller_addr[] = {
-    NULL,  // default
-    NULL,  // art
-    NULL   // vendor
-};
+typedef enum { MATCH_PREFIX, MATCH_SUFFIX } xdl_linker_match_type_t;
 
-#ifndef __LP64__
-#define XDL_LINKER_LIB "lib"
-#else
-#define XDL_LINKER_LIB "lib64"
-#endif
-static const char *xdl_linker_vendor_path[] = {
-    // order is important
-    "/vendor/" XDL_LINKER_LIB "/egl/",     "/vendor/" XDL_LINKER_LIB "/hw/",
-    "/vendor/" XDL_LINKER_LIB "/",         "/odm/" XDL_LINKER_LIB "/",
-    "/vendor/" XDL_LINKER_LIB "/vndk-sp/", "/odm/" XDL_LINKER_LIB "/vndk-sp/"};
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpadded"
+typedef struct {
+  xdl_linker_match_type_t type;
+  const char *value;
+} xdl_linker_match_t;
+#pragma clang diagnostic pop
+
+typedef struct {
+  void *addr;
+  xdl_linker_match_t *matches;
+  size_t matches_cursor;
+} xdl_linker_caller_t;
+
+// https://source.android.com/docs/core/architecture/vndk/linker-namespace
+// The following rules are loose and incomplete, you can add more according to your needs.
+static xdl_linker_match_t xdl_linker_match_default[] = {{MATCH_SUFFIX, "/libc.so"}};
+static xdl_linker_match_t xdl_linker_match_art[] = {{MATCH_SUFFIX, "/libart.so"}};
+static xdl_linker_match_t xdl_linker_match_sphal[] = {{MATCH_PREFIX, "/vendor/" LIB "/egl/"},
+                                                      {MATCH_PREFIX, "/vendor/" LIB "/hw/"},
+                                                      {MATCH_PREFIX, "/vendor/" LIB "/"},
+                                                      {MATCH_PREFIX, "/odm/" LIB "/"}};
+static xdl_linker_match_t xdl_linker_match_vndk[] = {{MATCH_PREFIX, "/apex/com.android.vndk.v"},
+                                                     {MATCH_PREFIX, "/vendor/" LIB "/vndk-sp/"},
+                                                     {MATCH_PREFIX, "/odm/" LIB "/vndk-sp/"}};
+static xdl_linker_caller_t xdl_linker_callers[] = {
+    {NULL, xdl_linker_match_default, sizeof(xdl_linker_match_default) / sizeof(xdl_linker_match_t)},
+    {NULL, xdl_linker_match_art, sizeof(xdl_linker_match_art) / sizeof(xdl_linker_match_t)},
+    {NULL, xdl_linker_match_sphal, sizeof(xdl_linker_match_sphal) / sizeof(xdl_linker_match_t)},
+    {NULL, xdl_linker_match_vndk, sizeof(xdl_linker_match_vndk) / sizeof(xdl_linker_match_t)}};
 
 static void xdl_linker_init_symbols_impl(void) {
   // find linker from: /proc/self/maps (API level < 18) or getauxval (API level >= 18)
@@ -121,41 +143,44 @@ static void *xdl_linker_get_caller_addr(struct dl_phdr_info *info) {
   return NULL;
 }
 
-static int xdl_linker_get_caller_addr_cb(struct dl_phdr_info *info, size_t size, void *arg) {
-  (void)size;
-
-  size_t *vendor_match = (size_t *)arg;
-
-  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0;  // continue
-
-  if (NULL == xdl_linker_caller_addr[0] && xdl_util_ends_with(info->dlpi_name, "/libc.so"))
-    xdl_linker_caller_addr[0] = xdl_linker_get_caller_addr(info);
-
-  if (NULL == xdl_linker_caller_addr[1] && xdl_util_ends_with(info->dlpi_name, "/libart.so"))
-    xdl_linker_caller_addr[1] = xdl_linker_get_caller_addr(info);
-
-  if (0 != *vendor_match) {
-    for (size_t i = 0; i < *vendor_match; i++) {
-      if (xdl_util_starts_with(info->dlpi_name, xdl_linker_vendor_path[i])) {
-        void *caller_addr = xdl_linker_get_caller_addr(info);
-        if (NULL != caller_addr) {
-          xdl_linker_caller_addr[2] = caller_addr;
-          *vendor_match = i;
-        }
-      }
-    }
-  }
-
-  if (NULL != xdl_linker_caller_addr[0] && NULL != xdl_linker_caller_addr[1] && 0 == *vendor_match) {
-    return 1;  // finish
-  } else {
-    return 0;  // continue
+static void xdl_linker_save_caller_addr(struct dl_phdr_info *info, xdl_linker_caller_t *caller,
+                                        size_t cursor) {
+  void *addr = xdl_linker_get_caller_addr(info);
+  if (NULL != addr) {
+    caller->addr = addr;
+    caller->matches_cursor = cursor;
   }
 }
 
+static int xdl_linker_get_caller_addr_cb(struct dl_phdr_info *info, size_t size, void *arg) {
+  (void)size, (void)arg;
+  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0;  // continue
+
+  int ret = 1;  // OK
+  for (size_t i = 0; i < sizeof(xdl_linker_callers) / sizeof(xdl_linker_callers[0]); i++) {
+    xdl_linker_caller_t *caller = &xdl_linker_callers[i];
+    for (size_t j = 0; j < caller->matches_cursor; j++) {
+      xdl_linker_match_t *match = &caller->matches[j];
+      switch (match->type) {
+        case MATCH_PREFIX:
+          if (xdl_util_starts_with(info->dlpi_name, match->value)) {
+            xdl_linker_save_caller_addr(info, caller, j);
+          }
+          break;
+        case MATCH_SUFFIX:
+          if (xdl_util_ends_with(info->dlpi_name, match->value)) {
+            xdl_linker_save_caller_addr(info, caller, j);
+          }
+          break;
+      }
+    }
+    if (NULL == caller->addr || 0 != caller->matches_cursor) ret = 0;  // continue
+  }
+  return ret;
+}
+
 static void xdl_linker_init_caller_addr_impl(void) {
-  size_t vendor_match = sizeof(xdl_linker_vendor_path) / sizeof(xdl_linker_vendor_path[0]);
-  xdl_iterate_phdr_impl(xdl_linker_get_caller_addr_cb, &vendor_match, XDL_DEFAULT);
+  xdl_iterate_phdr_impl(xdl_linker_get_caller_addr_cb, NULL, XDL_DEFAULT);
 }
 
 static void xdl_linker_init_caller_addr(void) {
@@ -186,19 +211,20 @@ void *xdl_linker_force_dlopen(const char *filename) {
     if (__ANDROID_API_N__ == api_level || __ANDROID_API_N_MR1__ == api_level) {
       // == Android 7.x
       xdl_linker_lock();
-      for (size_t i = 0; i < sizeof(xdl_linker_caller_addr) / sizeof(xdl_linker_caller_addr[0]); i++) {
-        if (NULL != xdl_linker_caller_addr[i]) {
-          handle =
-              ((xdl_linker_dlopen_n_t)xdl_linker_dlopen)(filename, RTLD_NOW, NULL, xdl_linker_caller_addr[i]);
+      for (size_t i = 0; i < sizeof(xdl_linker_callers) / sizeof(xdl_linker_callers[0]); i++) {
+        xdl_linker_caller_t *caller = &xdl_linker_callers[i];
+        if (NULL != caller->addr) {
+          handle = ((xdl_linker_dlopen_n_t)xdl_linker_dlopen)(filename, RTLD_NOW, NULL, caller->addr);
           if (NULL != handle) break;
         }
       }
       xdl_linker_unlock();
     } else {
       // >= Android 8.0
-      for (size_t i = 0; i < sizeof(xdl_linker_caller_addr) / sizeof(xdl_linker_caller_addr[0]); i++) {
-        if (NULL != xdl_linker_caller_addr[i]) {
-          handle = ((xdl_linker_dlopen_o_t)xdl_linker_dlopen)(filename, RTLD_NOW, xdl_linker_caller_addr[i]);
+      for (size_t i = 0; i < sizeof(xdl_linker_callers) / sizeof(xdl_linker_callers[0]); i++) {
+        xdl_linker_caller_t *caller = &xdl_linker_callers[i];
+        if (NULL != caller->addr) {
+          handle = ((xdl_linker_dlopen_o_t)xdl_linker_dlopen)(filename, RTLD_NOW, caller->addr);
           if (NULL != handle) break;
         }
       }
