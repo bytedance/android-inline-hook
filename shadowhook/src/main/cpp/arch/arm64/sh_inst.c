@@ -63,7 +63,7 @@ static int sh_inst_hook_rewrite(sh_inst_t *self, uintptr_t target_addr, uintptr_
 
   // absolute jump back to remaining original instructions (fill in enter)
   rinfo.buf_offset +=
-      sh_a64_absolute_jump((uint32_t *)(self->enter_addr + rinfo.buf_offset), target_addr + self->backup_len);
+      sh_a64_absolute_jump_with_ret((uint32_t *)(self->enter_addr + rinfo.buf_offset), target_addr + self->backup_len);
   sh_util_clear_cache(self->enter_addr, rinfo.buf_offset);
 
   // save original function address
@@ -87,7 +87,7 @@ static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_in
   if (dlinfo->dli_ssize < self->backup_len) return SHADOWHOOK_ERRNO_HOOK_SYMSZ;
 
   // alloc an exit for absolute jump
-  sh_a64_absolute_jump(self->exit, new_addr);
+  sh_a64_absolute_jump_with_br(self->exit, new_addr);
   if (0 !=
       (r = sh_exit_alloc(&self->exit_addr, (uint16_t *)&self->exit_type, pc, dlinfo, (uint8_t *)(self->exit),
                          sizeof(self->exit), SH_INST_A64_B_RANGE_LOW, SH_INST_A64_B_RANGE_HIGH)))
@@ -145,7 +145,7 @@ static int sh_inst_hook_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl
   if (0 != r) return r;
 
   // absolute jump to new function address by overwriting the head of original function
-  sh_a64_absolute_jump(self->trampo, new_addr);
+  sh_a64_absolute_jump_with_br(self->trampo, new_addr);
   __atomic_thread_fence(__ATOMIC_SEQ_CST);
   if (0 != (r = sh_util_write_inst(target_addr, self->trampo, self->backup_len))) return r;
 

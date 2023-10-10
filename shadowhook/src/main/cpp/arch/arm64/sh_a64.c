@@ -279,9 +279,26 @@ size_t sh_a64_rewrite(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_rewrite
   }
 }
 
-size_t sh_a64_absolute_jump(uint32_t *buf, uintptr_t addr) {
+size_t sh_a64_absolute_jump_with_br(uint32_t *buf, uintptr_t addr) {
   buf[0] = 0x58000051;  // LDR X17, #8
   buf[1] = 0xd61f0220;  // BR X17
+  buf[2] = addr & 0xFFFFFFFF;
+  buf[3] = addr >> 32u;
+  return 16;
+}
+
+// Use RET instead of BR to bypass arm64 BTI.
+//
+// ref:
+// https://developer.arm.com/documentation/102433/0100/Jump-oriented-programming
+// https://developer.arm.com/documentation/ddi0602/2023-06/Base-Instructions/BTI--Branch-Target-Identification-?lang=en
+// https://github.com/torvalds/linux/commit/8ef8f360cf30be12382f89ff48a57fbbd9b31c14
+// https://android-review.googlesource.com/c/platform/bionic/+/1242754
+// https://developer.android.com/ndk/guides/abis#armv9_enabling_pac_and_bti_for_cc
+// https://developer.arm.com/documentation/100067/0612/armclang-Command-line-Options/-mbranch-protection
+size_t sh_a64_absolute_jump_with_ret(uint32_t *buf, uintptr_t addr) {
+  buf[0] = 0x58000051;  // LDR X17, #8
+  buf[1] = 0xd65f0220;  // RET X17
   buf[2] = addr & 0xFFFFFFFF;
   buf[3] = addr >> 32u;
   return 16;
