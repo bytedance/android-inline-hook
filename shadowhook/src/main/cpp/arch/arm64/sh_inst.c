@@ -62,8 +62,8 @@ static int sh_inst_hook_rewrite(sh_inst_t *self, uintptr_t target_addr, uintptr_
   }
 
   // absolute jump back to remaining original instructions (fill in enter)
-  rinfo.buf_offset +=
-      sh_a64_absolute_jump_with_ret((uint32_t *)(self->enter_addr + rinfo.buf_offset), target_addr + self->backup_len);
+  rinfo.buf_offset += sh_a64_absolute_jump_with_ret((uint32_t *)(self->enter_addr + rinfo.buf_offset),
+                                                    target_addr + self->backup_len);
   sh_util_clear_cache(self->enter_addr, rinfo.buf_offset);
 
   // save original function address
