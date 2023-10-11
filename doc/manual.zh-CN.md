@@ -351,7 +351,7 @@ void *shadowhook_hook_func_addr(void *func_addr, void *new_addr, void **orig_add
 ```C
 void *orig;
 void *func = get_hidden_func_addr();
-void *stub = shadowhook_hook_sym_addr(func, my_func, &orig);
+void *stub = shadowhook_hook_func_addr(func, my_func, &orig);
 if(stub == NULL)
 {
     int error_num = shadowhook_get_errno();
