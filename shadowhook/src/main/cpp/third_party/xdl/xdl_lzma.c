@@ -86,7 +86,7 @@ static xdl_lzma_free_t xdl_lzma_free = NULL;
 static void *xdl_lzma_code = NULL;
 
 // LZMA init
-static void xdl_lzma_init() {
+static void xdl_lzma_init(void) {
   void *lzma = xdl_open(XDL_LZMA_PATHNAME, XDL_TRY_FORCE_LOAD);
   if (NULL == lzma) return;
 

@@ -452,7 +452,7 @@ static int xdl_find_iterate_cb(struct dl_phdr_info *info, size_t size, void *arg
 
   // found the target ELF
   if (NULL == ((*self) = calloc(1, sizeof(xdl_t)))) return 1;  // return failed
-  if (NULL == ((*self)->pathname = strdup(info->dlpi_name))) {
+  if (NULL == ((*self)->pathname = strdup((const char *)info->dlpi_name))) {
     free(*self);
     *self = NULL;
     return 1;  // return failed
@@ -668,6 +668,7 @@ void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
  * symbol name in .symtab          lookup                       is match
  * ----------------------          ----------------             --------
  * abcd                            abc                          N
+ * abcd                            abcde                        N
  * abcd                            abcd                         Y
  * abcd.llvm.10190306339727611508  abc                          N
  * abcd.llvm.10190306339727611508  abcd                         Y
@@ -678,17 +679,19 @@ void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
  * abcd.__uniq.513291356003753     abcd.__uniq.513291356003753  Y
  */
 // clang-format on
-static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t str_len) {
-  if (__predict_false(0 == str_len)) return false;
+static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t sym_len) {
+  size_t str_len = strlen(str);
+  if (0 == str_len) return false;
 
-  do {
-    if (*str != *sym) return __predict_false('.' == *str && '\0' == *sym);
-    str++;
-    sym++;
-    if ('\0' == *str) break;
-  } while (0 != --str_len);
-
-  return true;
+  if (str_len < sym_len) {
+    return false;
+  } else {
+    bool sym_len_match = (0 == memcmp(str, sym, sym_len));
+    if (str_len == sym_len)
+      return sym_len_match;
+    else // str_len > sym_len
+      return sym_len_match && (str[sym_len] == '.');
+  }
 }
 
 void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
@@ -705,12 +708,13 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
 
   // find symbol
   if (NULL == self->symtab) return NULL;
+  size_t symbol_len = strlen(symbol);
   for (size_t i = 0; i < self->symtab_cnt; i++) {
     ElfW(Sym) *sym = self->symtab + i;
 
     if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) continue;
     // if (0 != strncmp(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
-    if (!xdl_dsym_is_match(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
+    if (!xdl_dsym_is_match(self->strtab + sym->st_name, symbol, symbol_len)) continue;
 
     if (NULL != symbol_size) *symbol_size = sym->st_size;
     return (void *)(self->load_bias + sym->st_value);
@@ -741,10 +745,12 @@ static int xdl_open_by_addr_iterate_cb(struct dl_phdr_info *info, size_t size, v
   xdl_t **self = (xdl_t **)*pkg++;
   uintptr_t addr = *pkg;
 
+  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0; // continue
+
   if (xdl_elf_is_match(info->dlpi_addr, info->dlpi_phdr, info->dlpi_phnum, addr)) {
     // found the target ELF
     if (NULL == ((*self) = calloc(1, sizeof(xdl_t)))) return 1;  // failed
-    if (NULL == ((*self)->pathname = strdup(info->dlpi_name))) {
+    if (NULL == ((*self)->pathname = strdup((const char *)info->dlpi_name))) {
       free(*self);
       *self = NULL;
       return 1;  // failed
@@ -757,7 +763,7 @@ static int xdl_open_by_addr_iterate_cb(struct dl_phdr_info *info, size_t size, v
     return 1;  // OK
   }
 
-  return 0;  // mismatch
+  return 0;  // continue
 }
 
 static void *xdl_open_by_addr(void *addr) {
