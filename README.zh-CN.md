@@ -1,7 +1,7 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.8-red.svg?style=flat)
+![](https://img.shields.io/badge/release-1.0.9-red.svg?style=flat)
 ![](https://img.shields.io/badge/Android-4.1%20--%2014-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.8'
+    implementation 'com.bytedance.android:shadowhook:1.0.9'
 }
 ```
 
