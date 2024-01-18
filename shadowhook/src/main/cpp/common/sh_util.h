@@ -30,6 +30,13 @@
 #include <stdint.h>
 #include <time.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreserved-id-macro"
+#ifndef __ANDROID_API_U__
+#define __ANDROID_API_U__ 34
+#endif
+#pragma clang diagnostic pop
+
 #define SH_UTIL_ALIGN_START(x, align) ((uintptr_t)(x) & ~((uintptr_t)(align)-1))
 #define SH_UTIL_ALIGN_END(x, align)   (((uintptr_t)(x) + (uintptr_t)(align)-1) & ~((uintptr_t)(align)-1))
 

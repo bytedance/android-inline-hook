@@ -43,10 +43,11 @@
 #define SH_LINKER_BASENAME "linker64"
 #endif
 
-#define SH_LINKER_SYM_G_DL_MUTEX  "__dl__ZL10g_dl_mutex"
-#define SH_LINKER_SYM_DO_DLOPEN_L "__dl__Z9do_dlopenPKciPK17android_dlextinfo"
-#define SH_LINKER_SYM_DO_DLOPEN_N "__dl__Z9do_dlopenPKciPK17android_dlextinfoPv"
-#define SH_LINKER_SYM_DO_DLOPEN_O "__dl__Z9do_dlopenPKciPK17android_dlextinfoPKv"
+#define SH_LINKER_SYM_G_DL_MUTEX        "__dl__ZL10g_dl_mutex"
+#define SH_LINKER_SYM_G_DL_MUTEX_U_QPR2 "__dl_g_dl_mutex"
+#define SH_LINKER_SYM_DO_DLOPEN_L       "__dl__Z9do_dlopenPKciPK17android_dlextinfo"
+#define SH_LINKER_SYM_DO_DLOPEN_N       "__dl__Z9do_dlopenPKciPK17android_dlextinfoPv"
+#define SH_LINKER_SYM_DO_DLOPEN_O       "__dl__Z9do_dlopenPKciPK17android_dlextinfoPKv"
 
 static bool sh_linker_dlopen_hooked = false;
 
@@ -120,6 +121,8 @@ int sh_linker_init(void) {
 
     // get g_dl_mutex
     sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX, NULL));
+    if (NULL == sh_linker_g_dl_mutex && api_level >= __ANDROID_API_U__)
+      sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX_U_QPR2, NULL));
 
     // get do_dlopen
     if (api_level >= __ANDROID_API_O__)
@@ -135,7 +138,7 @@ int sh_linker_init(void) {
     xdl_close(handle);
   }
 
-  return (0 != sh_linker_dlopen_addr && (0 != sh_linker_g_dl_mutex || api_level < __ANDROID_API_L__)) ? 0
+  return (0 != sh_linker_dlopen_addr && (NULL != sh_linker_g_dl_mutex || api_level < __ANDROID_API_L__)) ? 0
                                                                                                       : -1;
 }
 
