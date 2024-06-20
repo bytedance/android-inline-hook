@@ -53,7 +53,7 @@ typedef struct {
 } xdl_info_t;
 
 //
-// Default value for flags in both xdl_open() and xdl_iterate_phdr().
+// Default value for flags in xdl_open(), xdl_addr4(), and xdl_iterate_phdr().
 //
 #define XDL_DEFAULT 0x00
 
@@ -70,7 +70,9 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size);
 //
 // Enhanced dladdr().
 //
+#define XDL_NON_SYM 0x01
 int xdl_addr(void *addr, xdl_info_t *info, void **cache);
+int xdl_addr4(void *addr, xdl_info_t *info, void **cache, int flags);
 void xdl_addr_clean(void **cache);
 
 //

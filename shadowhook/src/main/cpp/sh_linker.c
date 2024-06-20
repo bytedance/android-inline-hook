@@ -294,10 +294,10 @@ int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name,
   void *dlcache = NULL;
   int r = 0;
   if (sh_util_get_api_level() >= __ANDROID_API_L__) {
-    r = xdl_addr((void *)addr, dlinfo, &dlcache);
+    r = xdl_addr4(addr, dlinfo, &dlcache, ignore_symbol_check ? XDL_NON_SYM : XDL_DEFAULT);
   } else {
     SH_SIG_TRY(SIGSEGV, SIGBUS) {
-      r = xdl_addr((void *)addr, dlinfo, &dlcache);
+      r = xdl_addr4(addr, dlinfo, &dlcache, ignore_symbol_check ? XDL_NON_SYM : XDL_DEFAULT);
     }
     SH_SIG_CATCH() {
       crashed = true;
