@@ -92,7 +92,7 @@ static int sh_switch_create(sh_switch_t **self, uintptr_t target_addr, uintptr_t
 
   if (NULL != hub_trampo) {
     if (NULL == ((*self)->hub = sh_hub_create(target_addr, hub_trampo))) {
-      free(self);
+      free(*self);
       return SHADOWHOOK_ERRNO_HUB_CREAT;
     }
   }
