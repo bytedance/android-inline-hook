@@ -36,9 +36,27 @@
 #include "sh_sig.h"
 #include "shadowhook.h"
 
+static size_t sh_util_page_size = 0;
+
+__attribute__((constructor)) static void sh_util_ctor(void) {
+  sh_util_page_size = (size_t)getpagesize();
+}
+
+size_t sh_util_get_page_size(void) {
+  return sh_util_page_size;
+}
+
+uintptr_t sh_util_page_start(uintptr_t x) {
+  return x & ~(sh_util_page_size - 1);
+}
+
+uintptr_t sh_util_page_end(uintptr_t x) {
+  return sh_util_page_start(x + sh_util_page_size - 1);
+}
+
 int sh_util_mprotect(uintptr_t addr, size_t len, int prot) {
-  uintptr_t start = SH_UTIL_PAGE_START(addr);
-  uintptr_t end = SH_UTIL_PAGE_END(addr + len - 1);
+  uintptr_t start = sh_util_page_start(addr);
+  uintptr_t end = sh_util_page_end(addr + len - 1);
 
   return mprotect((void *)start, end - start, prot);
 }

@@ -43,7 +43,7 @@
 #define SH_HUB_TRAMPO_PAGE_NAME "shadowhook-hub-trampo"
 #define SH_HUB_TRAMPO_DELAY_SEC 5
 #define SH_HUB_STACK_NAME       "shadowhook-hub-stack"
-#define SH_HUB_STACK_SIZE       4096
+#define SH_HUB_STACK_SIZE       4096 // 4K is enough
 #define SH_HUB_STACK_FRAME_MAX  127  // keep sizeof(sh_hub_stack_t) < 4K
 #define SH_HUB_THREAD_MAX       1024
 #define SH_HUB_DELAY_SEC        10

@@ -86,7 +86,7 @@ static void *sh_linker_get_base_addr(xdl_info_t *dlinfo) {
   if (UINTPTR_MAX == vaddr_min)
     return dlinfo->dli_fbase;  // should not happen
   else
-    return (void *)((uintptr_t)dlinfo->dli_fbase + SH_UTIL_PAGE_START(vaddr_min));
+    return (void *)((uintptr_t)dlinfo->dli_fbase + sh_util_page_start(vaddr_min));
 }
 
 static bool sh_linker_check_arch(xdl_info_t *dlinfo) {

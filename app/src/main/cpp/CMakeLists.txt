@@ -6,8 +6,10 @@ find_package(shadowhook REQUIRED CONFIG)
 
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
     set(ARCH "arm64")
+    set(ARCH_LINK_FLAGS "-Wl,-z,max-page-size=16384")
 elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
     set(ARCH "arm")
+    set(ARCH_LINK_FLAGS "")
 endif()
 
 # libhookee.so
@@ -18,6 +20,7 @@ target_compile_features(${TARGET} PUBLIC c_std_17)
 target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror -Wno-unused-macros)
 target_include_directories(${TARGET} PUBLIC hookee)
 target_link_libraries(${TARGET} log)
+target_link_options(${TARGET} PUBLIC ${ARCH_LINK_FLAGS})
 
 # libhookee2.so
 set(TARGET "hookee2")
@@ -27,6 +30,7 @@ target_compile_features(${TARGET} PUBLIC c_std_17)
 target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror)
 target_include_directories(${TARGET} PUBLIC hookee2)
 target_link_libraries(${TARGET} log)
+target_link_options(${TARGET} PUBLIC ${ARCH_LINK_FLAGS})
 
 # libunittest.so
 set(TARGET "unittest")
@@ -36,3 +40,4 @@ target_compile_features(${TARGET} PUBLIC c_std_17)
 target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror)
 target_include_directories(${TARGET} PUBLIC unittest hookee)
 target_link_libraries(${TARGET} log hookee shadowhook::shadowhook)
+target_link_options(${TARGET} PUBLIC ${ARCH_LINK_FLAGS})

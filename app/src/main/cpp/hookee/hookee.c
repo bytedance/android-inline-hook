@@ -48,8 +48,9 @@ static void hookee_init_helper(void) {
 #if defined(__arm__)
 
 static int hookee_fill(uintptr_t addr, uintptr_t val) {
-  uintptr_t aligned_addr = (addr & ~((uintptr_t)(PAGE_SIZE - 1)));
-  size_t aligned_len = (1 + ((addr + sizeof(uintptr_t) - 1 - aligned_addr) / PAGE_SIZE)) * PAGE_SIZE;
+  size_t page_size = (size_t)getpagesize();
+  uintptr_t aligned_addr = (addr & ~((uintptr_t)(page_size - 1)));
+  size_t aligned_len = (1 + ((addr + sizeof(uintptr_t) - 1 - aligned_addr) / page_size)) * page_size;
 
   if (0 != mprotect((void *)aligned_addr, aligned_len, PROT_READ | PROT_WRITE | PROT_EXEC)) {
     LOG("hookee_edit failed: %" PRIxPTR, addr);

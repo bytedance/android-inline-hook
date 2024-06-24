@@ -3,6 +3,12 @@ project(systest)
 
 find_package(shadowhook REQUIRED CONFIG)
 
+if(${ANDROID_ABI} STREQUAL "arm64-v8a")
+    set(ARCH_LINK_FLAGS "-Wl,-z,max-page-size=16384")
+elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    set(ARCH_LINK_FLAGS "")
+endif()
+
 set(TARGET "shadowhooksystest")
 file(GLOB SRC *.c)
 add_library(${TARGET} SHARED ${SRC})
@@ -15,6 +21,7 @@ if(DEPENDENCY_ON_LOCAL_LIBRARY)
     target_compile_definitions(${TARGET} PUBLIC -DDEPENDENCY_ON_LOCAL_LIBRARY)
 endif()
 
+target_link_options(${TARGET} PUBLIC ${ARCH_LINK_FLAGS})
 if(USEASAN)
     target_compile_options(${TARGET} PUBLIC -fsanitize=address -fno-omit-frame-pointer)
     target_link_options(${TARGET} PUBLIC -fsanitize=address)

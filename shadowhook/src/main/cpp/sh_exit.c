@@ -183,12 +183,12 @@ static size_t sh_exit_get_gaps(xdl_info_t *dlinfo, sh_exit_gap_t *gaps, size_t g
     }
 
     uintptr_t cur_end = (uintptr_t)dlinfo->dli_fbase + cur_phdr->p_vaddr + cur_phdr->p_memsz;
-    uintptr_t cur_page_end = SH_UTIL_PAGE_END(cur_end);
+    uintptr_t cur_page_end = sh_util_page_end(cur_end);
     uintptr_t cur_file_end = (uintptr_t)dlinfo->dli_fbase + cur_phdr->p_vaddr + cur_phdr->p_filesz;
-    uintptr_t cur_file_page_end = SH_UTIL_PAGE_END(cur_file_end);
+    uintptr_t cur_file_page_end = sh_util_page_end(cur_file_end);
     uintptr_t next_page_start =
         (NULL == next_phdr ? cur_page_end
-                           : SH_UTIL_PAGE_START((uintptr_t)dlinfo->dli_fbase + next_phdr->p_vaddr));
+                           : sh_util_page_start((uintptr_t)dlinfo->dli_fbase + next_phdr->p_vaddr));
 
     sh_exit_gap_t gap = {0, 0, false, false};
     if (cur_phdr->p_flags & PF_X) {

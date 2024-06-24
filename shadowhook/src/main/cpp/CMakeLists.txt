@@ -3,8 +3,10 @@ project(shadowhook)
 
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
     set(ARCH "arm64")
+    set(ARCH_LINK_FLAGS "-Wl,-z,max-page-size=16384")
 elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
     set(ARCH "arm")
+    set(ARCH_LINK_FLAGS "")
 endif()
 
 set(TARGET "shadowhook")
@@ -15,6 +17,7 @@ target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror)
 target_include_directories(${TARGET} PUBLIC . include arch/${ARCH} common third_party/xdl third_party/bsd third_party/lss)
 target_link_libraries(${TARGET} log)
 
+target_link_options(${TARGET} PUBLIC ${ARCH_LINK_FLAGS})
 if(USEASAN)
     target_compile_options(${TARGET} PUBLIC -fsanitize=address -fno-omit-frame-pointer)
     target_link_options(${TARGET} PUBLIC -fsanitize=address)

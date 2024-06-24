@@ -40,9 +40,6 @@
 #define SH_UTIL_ALIGN_START(x, align) ((uintptr_t)(x) & ~((uintptr_t)(align)-1))
 #define SH_UTIL_ALIGN_END(x, align)   (((uintptr_t)(x) + (uintptr_t)(align)-1) & ~((uintptr_t)(align)-1))
 
-#define SH_UTIL_PAGE_START(x) SH_UTIL_ALIGN_START(x, 0x1000)
-#define SH_UTIL_PAGE_END(x)   SH_UTIL_ALIGN_END(x, 0x1000)
-
 #define SH_UTIL_IS_THUMB(addr)   ((addr)&1u)
 #define SH_UTIL_CLEAR_BIT0(addr) ((addr)&0xFFFFFFFE)
 #define SH_UTIL_SET_BIT0(addr)   ((addr) | 1u)
@@ -83,6 +80,10 @@
     __typeof__(b) _b = (b); \
     _a < _b ? _a : _b;      \
   })
+
+size_t sh_util_get_page_size(void);
+uintptr_t sh_util_page_start(uintptr_t x);
+uintptr_t sh_util_page_end(uintptr_t x);
 
 int sh_util_mprotect(uintptr_t addr, size_t len, int prot);
 void sh_util_clear_cache(uintptr_t addr, size_t len);
