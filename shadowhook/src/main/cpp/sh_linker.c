@@ -120,9 +120,13 @@ int sh_linker_init(void) {
     sh_linker_dlopen_dlinfo.dli_fname = SH_LINKER_BASENAME;
 
     // get g_dl_mutex
-    sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX, NULL));
-    if (NULL == sh_linker_g_dl_mutex && api_level >= __ANDROID_API_U__)
+    if (api_level > __ANDROID_API_U__) {
       sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX_U_QPR2, NULL));
+    } else {
+      sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX, NULL));
+      if (NULL == sh_linker_g_dl_mutex && api_level == __ANDROID_API_U__)
+        sh_linker_g_dl_mutex = (pthread_mutex_t *)(xdl_dsym(handle, SH_LINKER_SYM_G_DL_MUTEX_U_QPR2, NULL));
+    }
 
     // get do_dlopen
     if (api_level >= __ANDROID_API_O__)
