@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.22.1)
 project(app)
 enable_language(ASM)
 
-find_package(shadowhook REQUIRED CONFIG)
+if(DEPENDENCY_ON_LOCAL_LIBRARY)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../../../../shadowhook/local_dependency.cmake)
+else()
+    find_package(shadowhook REQUIRED CONFIG)
+endif()
 
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
     set(ARCH "arm64")
