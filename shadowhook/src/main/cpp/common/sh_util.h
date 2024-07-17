@@ -40,8 +40,8 @@
 #define SH_UTIL_ALIGN_START(x, align) ((uintptr_t)(x) & ~((uintptr_t)(align)-1))
 #define SH_UTIL_ALIGN_END(x, align)   (((uintptr_t)(x) + (uintptr_t)(align)-1) & ~((uintptr_t)(align)-1))
 
-#define SH_UTIL_PAGE_START(x) SH_UTIL_ALIGN_START(x, 0x1000)
-#define SH_UTIL_PAGE_END(x)   SH_UTIL_ALIGN_END(x, 0x1000)
+#define SH_UTIL_PAGE_START(x) SH_UTIL_ALIGN_START(x, getpagesize())
+#define SH_UTIL_PAGE_END(x)   SH_UTIL_ALIGN_END(x, getpagesize())
 
 #define SH_UTIL_IS_THUMB(addr)   ((addr)&1u)
 #define SH_UTIL_CLEAR_BIT0(addr) ((addr)&0xFFFFFFFE)
@@ -101,3 +101,4 @@ struct tm *sh_util_localtime_r(const time_t *timep, long gmtoff, struct tm *resu
 
 size_t sh_util_vsnprintf(char *buffer, size_t buffer_size, const char *format, va_list args);
 size_t sh_util_snprintf(char *buffer, size_t buffer_size, const char *format, ...);
+
