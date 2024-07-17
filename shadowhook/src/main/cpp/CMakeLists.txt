@@ -14,6 +14,7 @@ target_compile_features(${TARGET} PUBLIC c_std_17)
 target_compile_options(${TARGET} PUBLIC -std=c17 -Weverything -Werror)
 target_include_directories(${TARGET} PUBLIC . include arch/${ARCH} common third_party/xdl third_party/bsd third_party/lss)
 target_link_libraries(${TARGET} log)
+target_link_options(${TARGET} PRIVATE "-Wl,-z,max-page-size=16384")
 
 if(USEASAN)
     target_compile_options(${TARGET} PUBLIC -fsanitize=address -fno-omit-frame-pointer)
