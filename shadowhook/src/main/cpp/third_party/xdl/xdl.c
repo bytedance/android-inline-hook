@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 HexHacking Team
+// Copyright (c) 2020-2024 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -757,7 +757,7 @@ static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t sy
     if (str_len == sym_len)
       return sym_len_match;
     else // str_len > sym_len
-      return sym_len_match && (str[sym_len] == '.');
+      return sym_len_match && (str[sym_len] == '.' || str[sym_len] == '$');
   }
 }
 

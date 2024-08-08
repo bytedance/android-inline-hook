@@ -245,4 +245,4 @@ BSD 3-Clause License
 Copyright (c) 2005-2011 Google Inc.
 * [xDL](https://github.com/hexhacking/xDL)  
 MIT License  
-Copyright (c) 2020-2023 HexHacking Team
+Copyright (c) 2020-2024 HexHacking Team
