@@ -23,6 +23,7 @@
 
 package com.bytedance.shadowhook.sample;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Build;
@@ -34,7 +35,6 @@ import com.bytedance.shadowhook.ShadowHook;
 import com.bytedance.shadowhook.systest.SysTest;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 
 public class MainActivity extends AppCompatActivity {
@@ -45,73 +45,94 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-    }
 
-    public void onUnitTestHookSymAddrClick(View view) {
-        NativeHandler.nativeHookSymAddr(Build.VERSION.SDK_INT);
-    }
-
-    public void onUnitTestHookSymNameClick(View view) {
-        NativeHandler.nativeHookSymName(Build.VERSION.SDK_INT);
-    }
-
-    public void onUnitTestUnhookClick(View view) {
-        NativeHandler.nativeUnhook();
-    }
-
-    public void onUnitTestLoadClick(View view) {
-        if(!hookee2Loaded) {
-            hookee2Loaded = true;
-            System.loadLibrary("hookee2");
-        }
-    }
-
-    public void onUnitTestRunClick(View view) {
-        NativeHandler.nativeRun(hookee2Loaded);
-    }
-
-    public void onSystemTestHookClick(View view) {
-        SysTest.hook();
-    }
-
-    public void onSystemTestUnhookClick(View view) {
-        SysTest.unhook();
-    }
-
-    public void onSystemTestRunClick(View view) {
-        SysTest.run();
-    }
-
-    public void onGetRecordsClick(View view) {
-        String records = ShadowHook.getRecords();
-//        String records = ShadowHook.getRecords(ShadowHook.RecordItem.CALLER_LIB_NAME, ShadowHook.RecordItem.OP, ShadowHook.RecordItem.LIB_NAME, ShadowHook.RecordItem.SYM_NAME, ShadowHook.RecordItem.ERRNO, ShadowHook.RecordItem.STUB);
-        if (records != null) {
-            for (String line : records.split("\n")) {
-                Log.i(tag, line);
+        findViewById(R.id.unitTestHookSymAddr).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeHookSymAddr(Build.VERSION.SDK_INT);
             }
-        }
-    }
+        });
 
-    public void onDumpRecordsClick(View view) {
-        String pathname = getApplicationContext().getFilesDir() + "/shadowhook_records.txt";
-        NativeHandler.nativeDumpRecords(pathname);
-
-        BufferedReader br = null;
-        try {
-            br = new BufferedReader(new FileReader(pathname));
-            String line;
-            while ((line = br.readLine()) != null) {
-                Log.i(tag, line);
+        findViewById(R.id.unitTestHookSymName).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeHookSymName(Build.VERSION.SDK_INT);
             }
-        } catch (Throwable ignored) {
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (Exception ignored) {
+        });
+
+        findViewById(R.id.unitTestUnhook).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeUnhook();
+            }
+        });
+
+        findViewById(R.id.unitTestLoad).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if(!hookee2Loaded) {
+                    hookee2Loaded = true;
+                    System.loadLibrary("hookee2");
                 }
             }
-        }
+        });
+
+        findViewById(R.id.unitTestRun).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeRun(hookee2Loaded);
+            }
+        });
+
+        findViewById(R.id.systemtestTestHook).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                SysTest.hook();
+            }
+        });
+
+        findViewById(R.id.systemtestTestUnhook).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                SysTest.unhook();
+            }
+        });
+
+        findViewById(R.id.systemtestTestRun).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                SysTest.run();
+            }
+        });
+
+        findViewById(R.id.getRecords).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                String records = ShadowHook.getRecords();
+//                String records = ShadowHook.getRecords(ShadowHook.RecordItem.CALLER_LIB_NAME, ShadowHook.RecordItem.OP, ShadowHook.RecordItem.LIB_NAME, ShadowHook.RecordItem.SYM_NAME, ShadowHook.RecordItem.ERRNO, ShadowHook.RecordItem.STUB);
+                if (records != null) {
+                    for (String line : records.split("\n")) {
+                        Log.i(tag, line);
+                    }
+                }
+            }
+        });
+
+        findViewById(R.id.dumpRecords).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                String pathname = getApplicationContext().getFilesDir() + "/shadowhook_records.txt";
+                NativeHandler.nativeDumpRecords(pathname);
+
+                BufferedReader br = null;
+                try {
+                    br = new BufferedReader(new FileReader(pathname));
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        Log.i(tag, line);
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    if (br != null) {
+                        try {
+                            br.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+        });
     }
 }
