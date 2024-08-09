@@ -34,7 +34,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SHADOWHOOK_VERSION "1.0.9"
+#define SHADOWHOOK_VERSION "1.0.10"
 
 #define SHADOWHOOK_ERRNO_OK                     0
 #define SHADOWHOOK_ERRNO_PENDING                1
