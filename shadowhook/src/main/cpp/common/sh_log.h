@@ -62,7 +62,7 @@ extern android_LogPriority sh_log_priority;
     if (__predict_false(sh_log_priority <= ANDROID_LOG_ERROR))                \
       __android_log_print(ANDROID_LOG_ERROR, SH_LOG_TAG, fmt, ##__VA_ARGS__); \
   } while (0)
-#define SH_LOG_ALWAYS_SHOW(fmt, ...) __android_log_print(ANDROID_LOG_WARN, SH_LOG_TAG, fmt, ##__VA_ARGS__)
+#define SH_LOG_ALWAYS_SHOW(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, SH_LOG_TAG, fmt, ##__VA_ARGS__)
 
 #pragma clang diagnostic pop
 
