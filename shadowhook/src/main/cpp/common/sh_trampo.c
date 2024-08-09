@@ -34,7 +34,7 @@
 #include "queue.h"
 #include "sh_util.h"
 
-#define SH_TRAMPO_ALIGN   4
+#define SH_TRAMPO_ALIGN 4
 
 void sh_trampo_init_mgr(sh_trampo_mgr_t *mem_mgr, const char *page_name, size_t trampo_size,
                         time_t delay_sec) {

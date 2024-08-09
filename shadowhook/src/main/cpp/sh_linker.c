@@ -143,7 +143,7 @@ int sh_linker_init(void) {
   }
 
   return (0 != sh_linker_dlopen_addr && (NULL != sh_linker_g_dl_mutex || api_level < __ANDROID_API_L__)) ? 0
-                                                                                                      : -1;
+                                                                                                         : -1;
 }
 
 const char *sh_linker_match_dlfcn(uintptr_t target_addr) {
