@@ -47,7 +47,7 @@
 #include "xdl_util.h"
 
 #ifndef STT_GNU_IFUNC
-#define	STT_GNU_IFUNC 10
+#define STT_GNU_IFUNC 10
 #endif
 
 #ifndef __LP64__
@@ -629,9 +629,9 @@ static ElfW(Sym) *xdl_dynsym_find_symbol_use_gnu_hash(xdl_t *self, const char *s
   return NULL;
 }
 
-typedef struct  {
-  unsigned long size; /** Set to sizeof(__ifunc_arg_t). */
-  unsigned long hwcap; /** Set to getauxval(AT_HWCAP). */
+typedef struct {
+  unsigned long size;   /** Set to sizeof(__ifunc_arg_t). */
+  unsigned long hwcap;  /** Set to getauxval(AT_HWCAP). */
   unsigned long hwcap2; /** Set to getauxval(AT_HWCAP2). */
 } xdl_ifunc_arg_t;
 
@@ -653,7 +653,7 @@ static void *xdl_resolve_symbol_address(xdl_t *self, ElfW(Sym) *sym, size_t *sym
       // Android [11, ...)
 #if defined(__aarch64__)
       if (NULL == getauxval) return NULL;
-      typedef void *(*ifunc_resolver_t)(uint64_t, xdl_ifunc_arg_t*);
+      typedef void *(*ifunc_resolver_t)(uint64_t, xdl_ifunc_arg_t *);
       static xdl_ifunc_arg_t arg;
       static bool initialized = false;
       if (!initialized) {
@@ -756,7 +756,7 @@ static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t sy
     bool sym_len_match = (0 == memcmp(str, sym, sym_len));
     if (str_len == sym_len)
       return sym_len_match;
-    else // str_len > sym_len
+    else  // str_len > sym_len
       return sym_len_match && (str[sym_len] == '.' || str[sym_len] == '$');
   }
 }
@@ -812,7 +812,7 @@ static int xdl_open_by_addr_iterate_cb(struct dl_phdr_info *info, size_t size, v
   xdl_t **self = (xdl_t **)*pkg++;
   uintptr_t addr = *pkg;
 
-  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0; // continue
+  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0;  // continue
 
   if (xdl_elf_is_match(info->dlpi_addr, info->dlpi_phdr, info->dlpi_phnum, addr)) {
     // found the target ELF
