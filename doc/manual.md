@@ -14,7 +14,7 @@ If you need an Android PLT hook library, please move to [ByteHook](https://githu
 
 # Features
 
-* Support Android 4.1 - 14 (API level 16 - 34).
+* Support Android 4.1 - 15 (API level 16 - 35).
 * Support armeabi-v7a and arm64-v8a.
 * Support hook for the whole function, but does not support hook for the middle position of the function.
 * Support to specify the hook location by "function address" or "library name + function name".

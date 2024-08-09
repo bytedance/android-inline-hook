@@ -2,7 +2,7 @@
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
 ![](https://img.shields.io/badge/release-1.0.10-red.svg?style=flat)
-![](https://img.shields.io/badge/Android-4.1%20--%2014-blue.svg?style=flat)
+![](https://img.shields.io/badge/Android-4.1%20--%2015-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
 [**English**](README.md)
@@ -16,7 +16,7 @@ ShadowHook 现在被用于 TikTok，抖音，今日头条，西瓜视频，飞�
 
 ## 特征
 
-* 支持 Android 4.1 - 14 (API level 16 - 34)。
+* 支持 Android 4.1 - 15 (API level 16 - 35)。
 * 支持 armeabi-v7a 和 arm64-v8a。
 * 支持针对函数整体的 hook，不支持对函数中间位置的 hook。
 * 支持通过“函数地址”或“库名 + 函数名”的方式指定 hook 位置。
