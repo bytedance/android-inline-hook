@@ -25,6 +25,7 @@ else()
     target_compile_options(${TARGET} PUBLIC -Oz -ffunction-sections -fdata-sections)
     target_link_options(${TARGET} PUBLIC -Oz -Wl,--exclude-libs,ALL -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/shadowhook.map.txt)
 endif()
+
 set(TARGET "shadowhook_nothing")
 add_library(${TARGET} SHARED nothing/sh_nothing.c)
 target_compile_options(${TARGET} PUBLIC -Oz -Weverything -Werror -fno-ident -fno-unwind-tables -fno-asynchronous-unwind-tables)
