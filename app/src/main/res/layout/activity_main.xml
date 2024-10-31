@@ -34,7 +34,11 @@
 
         <Button style="@style/Theme.Button.Red"
             android:id="@+id/unitTestLoad"
-            android:text="load libhookee2.so (automatically hook)" />
+            android:text="dlopen libhookee2.so" />
+
+        <Button style="@style/Theme.Button.Red"
+            android:id="@+id/unitTestUnload"
+            android:text="dlclose libhookee2.so" />
 
         <Button style="@style/Theme.Button.Red"
             android:id="@+id/unitTestRun"

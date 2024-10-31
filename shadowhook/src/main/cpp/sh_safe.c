@@ -61,6 +61,7 @@ static int sh_safe_init_func(void *handle, const char *symbol, size_t idx) {
 int sh_safe_init(void) {
   sh_safe_api_level = sh_util_get_api_level();
 
+  // You can also use dlopen(), but dlopen() is more likely to have been hooked.
   void *handle = xdl_open("libc.so", XDL_DEFAULT);
   if (NULL == handle) return -1;
 
@@ -88,7 +89,8 @@ uintptr_t *sh_safe_get_orig_addr_addr(uintptr_t target_addr) {
 
 static uintptr_t sh_safe_get_orig_addr(size_t idx) {
   sh_safe_addr_t *addr = &sh_safe_addrs[idx];
-  return 0 != addr->orig_addr ? addr->orig_addr : addr->target_addr;
+  uintptr_t orig_addr = __atomic_load_n(&addr->orig_addr, __ATOMIC_ACQUIRE);
+  return 0 != orig_addr ? orig_addr : addr->target_addr;
 }
 
 void *sh_safe_pthread_getspecific(pthread_key_t key) {
@@ -125,6 +127,10 @@ void sh_safe_abort(void) {
 
 void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
   return sys_mmap(addr, length, prot, flags, fd, offset);
+}
+
+int sh_safe_munmap(void *addr, size_t size) {
+  return sys_munmap(addr, size);
 }
 
 int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4,

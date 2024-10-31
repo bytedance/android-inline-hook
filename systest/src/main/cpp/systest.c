@@ -53,9 +53,11 @@ extern __attribute((weak)) int dup3(int __old_fd, int __new_fd, int __flags);
 extern __attribute((weak)) int sigaction64(int __signal, const struct sigaction64 *__new_action,
                                            struct sigaction64 *__old_action);
 
+#define LOG_TAG "shadowhook_tag"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#define LOG(fmt, ...) __android_log_print(ANDROID_LOG_INFO, "shadowhook_tag", fmt, ##__VA_ARGS__)
+#define LOG(fmt, ...)             __android_log_print(ANDROID_LOG_INFO, LOG_TAG, fmt, ##__VA_ARGS__)
+#define LOG_ALWAYS_SHOW(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, fmt, ##__VA_ARGS__)
 #pragma clang diagnostic pop
 
 #define DELIMITER_TITLE  "==================================================================="
@@ -78,7 +80,8 @@ extern __attribute((weak)) int sigaction64(int __signal, const struct sigaction6
                      (void *)sym,                                                                         \
                      SHADOWHOOK_IS_UNIQUE_MODE ? (void *)unique_proxy_##sym : (void *)shared_proxy_##sym, \
                      (void **)(&orig_##sym))))                                                            \
-      LOG("hook sym addr FAILED: " TO_STR(sym) ". errno: %d", errno_##sym = shadowhook_get_errno());      \
+      LOG_ALWAYS_SHOW("hook sym addr FAILED: " TO_STR(sym) ". errno: %d",                                 \
+                      errno_##sym = shadowhook_get_errno());                                              \
   } while (0)
 
 #define HOOK_SYM_NAME(lib, sym)                                                                           \
@@ -89,31 +92,31 @@ extern __attribute((weak)) int sigaction64(int __signal, const struct sigaction6
                      TO_STR(lib), TO_STR(sym),                                                            \
                      SHADOWHOOK_IS_UNIQUE_MODE ? (void *)unique_proxy_##sym : (void *)shared_proxy_##sym, \
                      (void **)&orig_##sym)))                                                              \
-      LOG("hook sym name FAILED: " TO_STR(lib) ", " TO_STR(sym) ". errno: %d",                            \
-          errno_##sym = shadowhook_get_errno());                                                          \
+      LOG_ALWAYS_SHOW("hook sym name FAILED: " TO_STR(lib) ", " TO_STR(sym) ". errno: %d",                \
+                      errno_##sym = shadowhook_get_errno());                                              \
     else                                                                                                  \
       errno_##sym = shadowhook_get_errno();                                                               \
   } while (0)
 
-#define UNHOOK_SYM_ADDR(sym)                                                             \
-  do {                                                                                   \
-    if (NULL == sym) break;                                                              \
-    if (NULL == stub_##sym) break;                                                       \
-    if (0 != shadowhook_unhook(stub_##sym))                                              \
-      LOG("unhook sym addr FAILED: " TO_STR(sym) ". errno: %d", shadowhook_get_errno()); \
-    else                                                                                 \
-      errno_##sym = shadowhook_get_errno();                                              \
-    stub_##sym = NULL;                                                                   \
+#define UNHOOK_SYM_ADDR(sym)                                                                         \
+  do {                                                                                               \
+    if (NULL == sym) break;                                                                          \
+    if (NULL == stub_##sym) break;                                                                   \
+    if (0 != shadowhook_unhook(stub_##sym))                                                          \
+      LOG_ALWAYS_SHOW("unhook sym addr FAILED: " TO_STR(sym) ". errno: %d", shadowhook_get_errno()); \
+    else                                                                                             \
+      errno_##sym = shadowhook_get_errno();                                                          \
+    stub_##sym = NULL;                                                                               \
   } while (0)
 
-#define UNHOOK_SYM_NAME(sym)                                                             \
-  do {                                                                                   \
-    if (NULL == stub_##sym) break;                                                       \
-    if (0 != shadowhook_unhook(stub_##sym))                                              \
-      LOG("unhook sym addr FAILED: " TO_STR(sym) ". errno: %d", shadowhook_get_errno()); \
-    else                                                                                 \
-      errno_##sym = shadowhook_get_errno();                                              \
-    stub_##sym = NULL;                                                                   \
+#define UNHOOK_SYM_NAME(sym)                                                                         \
+  do {                                                                                               \
+    if (NULL == stub_##sym) break;                                                                   \
+    if (0 != shadowhook_unhook(stub_##sym))                                                          \
+      LOG_ALWAYS_SHOW("unhook sym addr FAILED: " TO_STR(sym) ". errno: %d", shadowhook_get_errno()); \
+    else                                                                                             \
+      errno_##sym = shadowhook_get_errno();                                                          \
+    stub_##sym = NULL;                                                                               \
   } while (0)
 
 #ifdef DEPENDENCY_ON_LOCAL_LIBRARY
@@ -808,6 +811,8 @@ static void shared_proxy_fake_sym(void) {
 #pragma clang diagnostic pop
 
 int systest_hook(void) {
+  LOG_ALWAYS_SHOW("systest hook start");
+
   HOOK_SYM_ADDR(pthread_create);
   HOOK_SYM_ADDR(pthread_exit);
 #ifdef DEPENDENCY_ON_LOCAL_LIBRARY
@@ -877,10 +882,14 @@ int systest_hook(void) {
   HOOK_SYM_NAME(libart.so, _ZN3art2gc4Heap21ThrowOutOfMemoryErrorEPNS_6ThreadEjNS0_13AllocatorTypeE);
 #endif
   HOOK_SYM_NAME(libshadowhook_non_existent_library.so, fake_sym);
+
+  LOG_ALWAYS_SHOW("systest hook end");
   return 0;
 }
 
 int systest_unhook(void) {
+  LOG_ALWAYS_SHOW("systest unhook start");
+
   UNHOOK_SYM_ADDR(pthread_create);
   UNHOOK_SYM_ADDR(pthread_exit);
 #ifdef DEPENDENCY_ON_LOCAL_LIBRARY
@@ -950,6 +959,8 @@ int systest_unhook(void) {
   UNHOOK_SYM_NAME(_ZN3art2gc4Heap21ThrowOutOfMemoryErrorEPNS_6ThreadEjNS0_13AllocatorTypeE);
 #endif
   UNHOOK_SYM_NAME(fake_sym);
+
+  LOG_ALWAYS_SHOW("systest unhook end");
   return 0;
 }
 
@@ -960,9 +971,12 @@ static void *systest_simulate_thd(void *arg) {
 
 static void systest_simulate(void) {
   // pthread_create, pthread_exit
-  pthread_t thd;
-  pthread_create(&thd, NULL, &systest_simulate_thd, NULL);
-  pthread_join(thd, NULL);
+
+  for (int i = 0; i < 4; ++i) {
+    pthread_t thd;
+    pthread_create(&thd, NULL, &systest_simulate_thd, NULL);
+    pthread_join(thd, NULL);
+  }
 
   // pthread_getspecific, pthread_setspecific
   static pthread_key_t systest_tls_key;

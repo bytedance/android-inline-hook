@@ -91,7 +91,7 @@ static int sh_switch_create(sh_switch_t **self, uintptr_t target_addr, uintptr_t
   (*self)->hub = NULL;
 
   if (NULL != hub_trampo) {
-    if (NULL == ((*self)->hub = sh_hub_create(target_addr, hub_trampo))) {
+    if (NULL == ((*self)->hub = sh_hub_create(hub_trampo))) {
       free(*self);
       return SHADOWHOOK_ERRNO_HUB_CREAT;
     }
@@ -142,7 +142,12 @@ static int sh_switch_hook_unique(uintptr_t target_addr, uintptr_t new_addr, uint
   }
 
   // do hook
-  if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, new_addr, orig_addr, NULL))) {
+  uintptr_t *safe_orig_addr_addr = sh_safe_get_orig_addr_addr(target_addr);
+  uintptr_t *orig_addr2 =
+      (NULL != safe_orig_addr_addr && 0 == __atomic_load_n(safe_orig_addr_addr, __ATOMIC_ACQUIRE))
+          ? safe_orig_addr_addr
+          : NULL;
+  if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, new_addr, orig_addr, orig_addr2))) {
     RB_REMOVE(sh_switch_tree, &sh_switches, self);
     useless = self;
     goto end;
@@ -279,7 +284,12 @@ static int sh_switch_unhook_unique(uintptr_t target_addr) {
     r = SHADOWHOOK_ERRNO_UNHOOK_NOTFOUND;
     goto end;
   }
+
   r = sh_inst_unhook(&self->inst, target_addr);
+
+  uintptr_t *safe_orig_addr_addr = sh_safe_get_orig_addr_addr(target_addr);
+  if (NULL != safe_orig_addr_addr) __atomic_store_n(safe_orig_addr_addr, 0, __ATOMIC_RELEASE);
+
   RB_REMOVE(sh_switch_tree, &sh_switches, self);
   useless = self;
 
@@ -315,7 +325,7 @@ static int sh_switch_unhook_shared(uintptr_t target_addr, uintptr_t new_addr) {
     r = sh_inst_unhook(&self->inst, target_addr);
 
     uintptr_t *safe_orig_addr_addr = sh_safe_get_orig_addr_addr(target_addr);
-    if (NULL != safe_orig_addr_addr) __atomic_store_n(safe_orig_addr_addr, 0, __ATOMIC_SEQ_CST);
+    if (NULL != safe_orig_addr_addr) __atomic_store_n(safe_orig_addr_addr, 0, __ATOMIC_RELEASE);
 
     RB_REMOVE(sh_switch_tree, &sh_switches, self);
     useless = self;
@@ -331,13 +341,29 @@ int sh_switch_unhook(uintptr_t target_addr, uintptr_t new_addr) {
   int r;
   if (SHADOWHOOK_IS_UNIQUE_MODE) {
     r = sh_switch_unhook_unique(target_addr);
-    if (0 == r) SH_LOG_INFO("switch: unhook in UNIQUE mode OK: target_addr %" PRIxPTR, target_addr);
   } else {
     r = sh_switch_unhook_shared(target_addr, new_addr);
-    if (0 == r)
-      SH_LOG_INFO("switch: unhook in SHARED mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,
-                  target_addr, new_addr);
   }
 
+  if (0 == r)
+    SH_LOG_INFO("switch: unhook in %s mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,
+                SHADOWHOOK_IS_UNIQUE_MODE ? "UNIQUE" : "SHARED", target_addr, new_addr);
+
   return r;
+}
+
+void sh_switch_free_after_dlclose(xdl_info_t *dlinfo) {
+  pthread_rwlock_wrlock(&sh_switches_lock);  // SYNC - start
+
+  sh_switch_t *self, *tmp;
+  RB_FOREACH_SAFE(self, sh_switch_tree, &sh_switches, tmp) {
+    if (sh_util_is_in_elf_pt_load(dlinfo, self->target_addr)) {
+      RB_REMOVE(sh_switch_tree, &sh_switches, self);
+      sh_inst_free_after_dlclose(&self->inst, self->target_addr);
+      SH_LOG_INFO("switch: free_after_dlclose OK. target_addr %" PRIxPTR, self->target_addr);
+      sh_switch_destroy(self, false);
+    }
+  }
+
+  pthread_rwlock_unlock(&sh_switches_lock);  // SYNC - end
 }

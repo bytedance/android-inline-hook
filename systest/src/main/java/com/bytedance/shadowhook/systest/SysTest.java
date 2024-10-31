@@ -47,7 +47,7 @@ public class SysTest {
             return initErrno;
         }
 
-        // load libsystest.so
+        // load libshadowhooksystest.so
         try {
             System.loadLibrary(libName);
         } catch (Throwable ignored) {

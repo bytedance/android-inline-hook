@@ -44,9 +44,7 @@ typedef struct sh_trampo_mgr {
   time_t delay_sec;
 } sh_trampo_mgr_t;
 
-void sh_trampo_init_mgr(sh_trampo_mgr_t *mem_mgr, const char *page_name, size_t trampo_size,
-                        time_t delay_sec);
+void sh_trampo_init_mgr(sh_trampo_mgr_t *mgr, const char *page_name, size_t trampo_size, time_t delay_sec);
 
-uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mem_mgr, uintptr_t hint, uintptr_t low_offset,
-                          uintptr_t high_offset);
-void sh_trampo_free(sh_trampo_mgr_t *mem_mgr, uintptr_t mem);
+uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t low_offset, uintptr_t high_offset);
+void sh_trampo_free(sh_trampo_mgr_t *mgr, uintptr_t trampo);

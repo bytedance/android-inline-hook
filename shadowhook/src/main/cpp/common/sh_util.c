@@ -35,6 +35,7 @@
 #include "sh_log.h"
 #include "sh_sig.h"
 #include "shadowhook.h"
+#include "xdl.h"
 
 static size_t sh_util_page_size = 0;
 
@@ -109,13 +110,22 @@ int sh_util_write_inst(uintptr_t target_addr, void *inst, size_t inst_len) {
   return 0;  // OK
 }
 
-static bool sh_util_starts_with(const char *str, const char *start) {
+bool sh_util_starts_with(const char *str, const char *start) {
   while (*str && *str == *start) {
     str++;
     start++;
   }
 
   return '\0' == *start;
+}
+
+bool sh_util_ends_with(const char *str, const char *ending) {
+  size_t str_len = strlen(str);
+  size_t ending_len = strlen(ending);
+
+  if (ending_len > str_len) return false;
+
+  return 0 == strcmp(str + (str_len - ending_len), ending);
 }
 
 static int sh_util_get_api_level_from_build_prop(void) {
@@ -553,4 +563,18 @@ size_t sh_util_snprintf(char *buffer, size_t buffer_size, const char *format, ..
   size_t buffer_len = sh_util_vsnprintf(buffer, buffer_size, format, args);
   va_end(args);
   return buffer_len;
+}
+
+bool sh_util_is_in_elf_pt_load(xdl_info_t *dlinfo, uintptr_t addr) {
+  if (addr < (uintptr_t)dlinfo->dli_fbase) return false;
+
+  uintptr_t vaddr = addr - (uintptr_t)dlinfo->dli_fbase;
+  for (size_t i = 0; i < dlinfo->dlpi_phnum; i++) {
+    const ElfW(Phdr) *phdr = &(dlinfo->dlpi_phdr[i]);
+    if (PT_LOAD != phdr->p_type) continue;
+
+    if (phdr->p_vaddr <= vaddr && vaddr < phdr->p_vaddr + phdr->p_memsz) return true;
+  }
+
+  return false;
 }

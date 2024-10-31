@@ -209,6 +209,16 @@ ENTRY_GLOBAL_THUMB(test_t16_it_t1_case2)
     bx       lr
 END(test_t16_it_t1_case2)
 
+ENTRY_GLOBAL_THUMB(test_t16_it_t1_case3)
+  cmp      r0, r0         // Compare r0 with 0
+  itete    ne             // If-Then-Else-Then-Else block for Not Equal
+  addne    r1, r1, #1     // If r0 != 0, add 1 to r1
+  addeq    r2, r2, #2     // If r0 == 0, add 2 to r2
+  subne    r3, r3, #3     // If r0 != 0, subtract 3 from r3
+  moveq    r4, #4         // If r0 == 0, move 4 to r4
+  b        test_t16_helper_global
+END(test_t16_it_t1_case3)
+
 
 ENTRY_HIDDEN_THUMB(test_t16_helper_hidden_tail)
     add      r0, r0, r1

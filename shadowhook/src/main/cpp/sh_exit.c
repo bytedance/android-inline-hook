@@ -63,23 +63,14 @@ extern __attribute((weak)) unsigned long int getauxval(unsigned long int);
 static pthread_mutex_t sh_exit_lock = PTHREAD_MUTEX_INITIALIZER;
 static sh_trampo_mgr_t sh_exit_trampo_mgr;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpadded"
-typedef struct {
-  uintptr_t load_bias;
-  const ElfW(Phdr) *dlpi_phdr;
-  ElfW(Half) dlpi_phnum;
-} sh_exit_elfinfo_t;
-#pragma clang diagnostic pop
-
-static sh_exit_elfinfo_t sh_exit_app_process_info;
-static sh_exit_elfinfo_t sh_exit_linker_info;
-static sh_exit_elfinfo_t sh_exit_vdso_info;  // vdso may not exist
+static xdl_info_t sh_exit_app_process_info;
+static xdl_info_t sh_exit_linker_info;
+static xdl_info_t sh_exit_vdso_info;  // vdso may not exist
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu-statement-expression"
 
-static void sh_exit_init_elfinfo(unsigned long type, sh_exit_elfinfo_t *info) {
+static void sh_exit_init_elfinfo(unsigned long type, xdl_info_t *info) {
   if (__predict_false(NULL == getauxval)) goto err;
 
   uintptr_t val = (uintptr_t)getauxval(type);
@@ -105,13 +96,13 @@ static void sh_exit_init_elfinfo(unsigned long type, sh_exit_elfinfo_t *info) {
   if (__predict_false(UINTPTR_MAX == min_vaddr || base < min_vaddr)) goto err;
   uintptr_t load_bias = base - min_vaddr;
 
-  info->load_bias = load_bias;
+  info->dli_fbase = (void *)load_bias;
   info->dlpi_phdr = dlpi_phdr;
   info->dlpi_phnum = dlpi_phnum;
   return;
 
 err:
-  info->load_bias = 0;
+  info->dli_fbase = 0;
   info->dlpi_phdr = NULL;
   info->dlpi_phnum = 0;
 }
@@ -231,30 +222,16 @@ static size_t sh_exit_get_gaps(xdl_info_t *dlinfo, sh_exit_gap_t *gaps, size_t g
   return gaps_used;
 }
 
-static bool sh_exit_is_in_elf_range(uintptr_t pc, sh_exit_elfinfo_t *info) {
-  if (pc < info->load_bias) return false;
-
-  uintptr_t vaddr = pc - info->load_bias;
-  for (size_t i = 0; i < info->dlpi_phnum; i++) {
-    const ElfW(Phdr) *phdr = &(info->dlpi_phdr[i]);
-    if (PT_LOAD != phdr->p_type) continue;
-
-    if (phdr->p_vaddr <= vaddr && vaddr < phdr->p_vaddr + phdr->p_memsz) return true;
-  }
-
-  return false;
-}
-
 static bool sh_exit_is_elf_loaded_by_kernel(uintptr_t pc) {
   if (NULL == sh_exit_app_process_info.dlpi_phdr) return true;
-  if (sh_exit_is_in_elf_range(pc, &sh_exit_app_process_info)) return true;
+  if (sh_util_is_in_elf_pt_load(&sh_exit_app_process_info, pc)) return true;
 
   if (NULL == sh_exit_linker_info.dlpi_phdr) return true;
-  if (sh_exit_is_in_elf_range(pc, &sh_exit_linker_info)) return true;
+  if (sh_util_is_in_elf_pt_load(&sh_exit_linker_info, pc)) return true;
 
   // vdso may not exist
   if (NULL != sh_exit_vdso_info.dlpi_phdr)
-    if (sh_exit_is_in_elf_range(pc, &sh_exit_vdso_info)) return true;
+    if (sh_util_is_in_elf_pt_load(&sh_exit_vdso_info, pc)) return true;
 
   return false;
 }
@@ -415,6 +392,12 @@ int sh_exit_free(uintptr_t exit_addr, uint16_t exit_type, uint8_t *exit, size_t 
     return 0;
   } else
     return sh_exit_free_in_library(exit_addr, exit, exit_len);
+}
+
+void sh_exit_free_after_dlclose(uintptr_t exit_addr, uint16_t exit_type) {
+  if (SH_EXIT_TYPE_OUT_LIBRARY == exit_type) {
+    sh_exit_free_out_library(exit_addr);
+  }
 }
 
 #pragma clang diagnostic pop

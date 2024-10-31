@@ -29,14 +29,14 @@ int sh_hub_init(void);
 
 typedef struct sh_hub sh_hub_t;
 
-sh_hub_t *sh_hub_create(uintptr_t target_addr, uintptr_t *trampo);
+sh_hub_t *sh_hub_create(uintptr_t *trampo);
 void sh_hub_destroy(sh_hub_t *self, bool with_delay);
 
 uintptr_t sh_hub_get_orig_addr(sh_hub_t *self);
 uintptr_t *sh_hub_get_orig_addr_addr(sh_hub_t *self);
 
-int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func);
-int sh_hub_del_proxy(sh_hub_t *self, uintptr_t func, bool *have_enabled_proxy);
+int sh_hub_add_proxy(sh_hub_t *self, uintptr_t proxy_func);
+int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func, bool *have_enabled_proxy);
 
 void *sh_hub_get_prev_func(void *func);
 void sh_hub_pop_stack(void *return_address);

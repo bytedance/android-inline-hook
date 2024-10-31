@@ -25,16 +25,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "sh_util.h"
+#include "shadowhook.h"
 #include "xdl.h"
 
 int sh_linker_init(void);
 
-const char *sh_linker_match_dlfcn(uintptr_t target_addr);
-bool sh_linker_need_to_hook_dlopen(uintptr_t target_addr);
+// for Android 4.x
+#if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
+bool sh_linker_need_to_pre_register(uintptr_t target_addr);
+typedef void (*sh_linker_dlopen_post_t)(void);
+int sh_linker_register_dlopen_post_callback(sh_linker_dlopen_post_t post);
+#endif
 
-typedef void (*sh_linker_post_dlopen_t)(void *arg);
-int sh_linker_hook_dlopen(sh_linker_post_dlopen_t post_dlopen, void *post_dlopen_arg);
+// for Android >= 5.0
+int sh_linker_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int sh_linker_unregister_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int sh_linker_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int sh_linker_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
 
+// linker utils
 int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name, size_t lib_name_sz,
                                  char *sym_name, size_t sym_name_sz, bool ignore_symbol_check);
 int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo,

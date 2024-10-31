@@ -103,6 +103,7 @@ android {
 android {
     packagingOptions {
         exclude '**/libshadowhook.so'
+        exclude '**/libshadowhook_nothing.so'
     }
 }
 ```
@@ -113,6 +114,7 @@ android {
 android {
     packagingOptions {
         pickFirst '**/libshadowhook.so'
+        pickFirst '**/libshadowhook_nothing.so'
     }
 }
 ```
@@ -728,7 +730,61 @@ void do_unhook(void)
     stub = NULL;
 }
 ```
+# 其他函数
+```C
+#include "shadowhook.h"
 
+// register and unregister callbacks for executing dynamic library's .init .init_array / .fini .fini_array
+typedef void (*shadowhook_dl_info_t)(struct dl_phdr_info *info, size_t size, void *data);
+int shadowhook_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+```
+注册 / 反注册 `soinfo::call_constructors` 和`soinfo::call_destructors`回调函数
+
+### 参数
+
+* `pre`（不需要的话可传 `NULL`）：调用`call_constructors/call_destructors `前的代理函数。
+* `post`（不需要的话可传 `NULL`）：调用`call_constructors/call_destructors `后的代理函数。
+* `data`（不需要的话可传 `NULL`）：`pre`/`post`代理函数中传递的数据。
+
+注意：**`pre`/`post`代理函数不可同时为空**。
+
+### 返回值
+
+* `0`：成功。
+* `-1`：失败。可调用 `shadowhook_get_errno` 获取 errno，可继续调用 `shadowhook_to_errmsg` 获取 error message。
+
+### 举例
+
+```C
+#include "shadowhook.h"
+
+static void dl_init_pre(struct dl_phdr_info *info, size_t size, void *data) {
+  (void)size, (void)data;
+  __android_log_print(ANDROID_LOG_WARN,  "test", "dl_init, load_bias %" PRIxPTR ", %s", (uintptr_t)info->dlpi_addr, info->dlpi_name);
+}
+
+static void dl_fini_post(struct dl_phdr_info *info, size_t size, void *data) {
+  (void)size, (void)data;
+  __android_log_print(ANDROID_LOG_WARN,  "test", "dl_fini, load_bias %" PRIxPTR ", %s", (uintptr_t)info->dlpi_addr, info->dlpi_name);
+}
+
+void register_callback(void) {
+    if (0 != shadowhook_register_dl_init_callback(dl_init_pre, NULL, NULL)) {
+        int error_num = shadowhook_get_errno();
+        const char *error_msg = shadowhook_to_errmsg(error_num);
+        __android_log_print(ANDROID_LOG_WARN,  "test", "dl_init failed: %d - %s", error_num, error_msg);
+    }
+
+    if (0 != shadowhook_register_dl_fini_callback(NULL, dl_fini_post, NULL)) {
+        int error_num = shadowhook_get_errno();
+        const char *error_msg = shadowhook_to_errmsg(error_num);
+        __android_log_print(ANDROID_LOG_WARN,  "test", "dl_fini failed: %d - %s", error_num, error_msg);
+    }
+}
+```
 
 # 错误码
 

@@ -99,7 +99,11 @@ const char *sh_errno_to_errmsg(int error_number) {
                               /* 32 */ "Unhook on an error status task",
                               /* 33 */ "Unhook on an unfinished task",
                               /* 34 */ "ELF with an unsupported architecture",
-                              /* 35 */ "Linker with an unsupported architecture"};
+                              /* 35 */ "Linker with an unsupported architecture",
+                              /* 36 */ "Duplicate register callback",
+                              /* 37 */ "Unregister not-existed callback",
+                              /* 38 */ "Register callback not supported",
+                              /* 39 */ "TaskManager init Failed"};
 
   if (error_number < 0 || error_number >= (int)(sizeof(msg) / sizeof(msg[0]))) return "Unknown error number";
 

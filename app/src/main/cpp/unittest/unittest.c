@@ -223,6 +223,55 @@ static int hook_dlopen(int api_level) {
   return result;
 }
 
+#define SH_LINKER_SYM_CALL_CONSTRUCTORS_L "__dl__ZN6soinfo16CallConstructorsEv"
+#define SH_LINKER_SYM_CALL_DESTRUCTORS_L  "__dl__ZN6soinfo15CallDestructorsEv"
+#define SH_LINKER_SYM_CALL_CONSTRUCTORS_M "__dl__ZN6soinfo17call_constructorsEv"
+#define SH_LINKER_SYM_CALL_DESTRUCTORS_M  "__dl__ZN6soinfo16call_destructorsEv"
+
+typedef void (*linker_proxy_soinfo_call_ctors_t)(void *);
+static linker_proxy_soinfo_call_ctors_t linker_orig_soinfo_call_ctors;
+static void linker_proxy_soinfo_call_ctors(void *soinfo) {
+  if (SHADOWHOOK_IS_SHARED_MODE)
+    SHADOWHOOK_CALL_PREV(linker_proxy_soinfo_call_ctors, linker_proxy_soinfo_call_ctors_t, soinfo);
+  else
+    linker_orig_soinfo_call_ctors(soinfo);
+
+  if (SHADOWHOOK_IS_SHARED_MODE) SHADOWHOOK_POP_STACK();
+}
+
+typedef void (*linker_proxy_soinfo_call_dtors_t)(void *);
+static linker_proxy_soinfo_call_dtors_t linker_orig_soinfo_call_dtors;
+static void linker_proxy_soinfo_call_dtors(void *soinfo) {
+  if (SHADOWHOOK_IS_SHARED_MODE)
+    SHADOWHOOK_CALL_PREV(linker_proxy_soinfo_call_dtors, linker_proxy_soinfo_call_dtors_t, soinfo);
+  else
+    linker_orig_soinfo_call_dtors(soinfo);
+
+  if (SHADOWHOOK_IS_SHARED_MODE) SHADOWHOOK_POP_STACK();
+}
+
+static int hook_call_ctors_dtors(int api_level) {
+  static int result = -1;
+  static bool hooked = false;
+
+  if (hooked) return result;
+  hooked = true;
+
+  void *stub_ctors = shadowhook_hook_sym_name(
+      LINKER_BASENAME,
+      api_level >= __ANDROID_API_M__ ? SH_LINKER_SYM_CALL_CONSTRUCTORS_M : SH_LINKER_SYM_CALL_CONSTRUCTORS_L,
+      (void *)linker_proxy_soinfo_call_ctors, (void **)&linker_orig_soinfo_call_ctors);
+  int errno_ctors = shadowhook_get_errno();
+  void *stub_dtors = shadowhook_hook_sym_name(
+      LINKER_BASENAME,
+      api_level >= __ANDROID_API_M__ ? SH_LINKER_SYM_CALL_DESTRUCTORS_M : SH_LINKER_SYM_CALL_DESTRUCTORS_L,
+      (void *)linker_proxy_soinfo_call_dtors, (void **)&linker_orig_soinfo_call_dtors);
+  int errno_dtors = shadowhook_get_errno();
+
+  result = (NULL != stub_ctors && NULL != stub_dtors && 0 == errno_ctors && 0 == errno_dtors) ? 0 : -1;
+  return result;
+}
+
 // end of - hooking dlopen() or do_dlopen()
 ///////////////////////////////////////////////////////////////////////////
 
@@ -270,6 +319,7 @@ PROXY(t16_cbnz_t1)
 PROXY(t16_cbnz_t1_fixaddr)
 PROXY(t16_it_t1_case1)
 PROXY(t16_it_t1_case2)
+PROXY(t16_it_t1_case3)
 
 PROXY(t32_b_t3)
 PROXY(t32_b_t4)
@@ -398,6 +448,13 @@ static int unittest_hook(int api_level) {
     return -1;
   }
 
+  if (api_level >= __ANDROID_API_L__) {
+    if (0 != hook_call_ctors_dtors(api_level)) {
+      LOG("hook soinfo::call_constructors() and get soinfo::call_destructors() FAILED");
+      return -1;
+    }
+  }
+
 #if defined(__arm__)
 
   HOOK(t16_b_t1);
@@ -454,6 +511,7 @@ static int unittest_hook(int api_level) {
   HOOK(a32_ldr_lit_a1_case2);
   HOOK(a32_ldr_reg_a1_case1);
   HOOK(a32_ldr_reg_a1_case2);
+  HOOK(t16_it_t1_case3);
 
 #elif defined(__aarch64__)
 
@@ -538,6 +596,7 @@ int unittest_unhook(void) {
   UNHOOK(t16_cbnz_t1_fixaddr);
   UNHOOK(t16_it_t1_case1);
   UNHOOK(t16_it_t1_case2);
+  UNHOOK(t16_it_t1_case3);
 
   UNHOOK(t32_b_t3);
   UNHOOK(t32_b_t4);
@@ -644,6 +703,7 @@ int unittest_run(bool hookee2_loaded) {
   RUN(t16_cbnz_t1_fixaddr);
   RUN(t16_it_t1_case1);
   RUN(t16_it_t1_case2);
+  RUN(t16_it_t1_case3);
 
   LOG(DELIMITER, "TEST INST T32");
   RUN(t32_b_t3);
@@ -730,6 +790,12 @@ int unittest_run(bool hookee2_loaded) {
     RUN_WITH_DLSYM(libhookee2.so, hook_before_dlopen_1);
     RUN_WITH_DLSYM(libhookee2.so, hook_before_dlopen_2);
   }
+
+  LOG(DELIMITER, "TEST - dlopen");
+  void *handle = dlopen("libc.so", RTLD_NOW);
+  dlclose(handle);
+  handle = dlopen("libshadowhook_nothing.so", RTLD_NOW);
+  dlclose(handle);
 
   return 0;
 }

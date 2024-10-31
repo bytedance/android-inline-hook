@@ -34,4 +34,5 @@ int sh_safe_pthread_setspecific(pthread_key_t key, const void *value);
 void sh_safe_abort(void);
 
 void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+int sh_safe_munmap(void *addr, size_t size);
 int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);

@@ -27,7 +27,7 @@
 //
 // Note that in some cases these logs themselves can cause a crash.
 //
-//#define SH_CONFIG_DEBUG
+// #define SH_CONFIG_DEBUG
 
 // Operation record of hook and unhook.
 //

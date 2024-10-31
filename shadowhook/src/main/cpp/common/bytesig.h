@@ -21,7 +21,7 @@
 
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
-// version 1.0.4
+// version 1.0.5
 
 /*
  * #include "bytesig.h"
@@ -138,8 +138,7 @@
   if (1 == _bytesig_protected_)                                                             \
     bytesig_unprotect(_bytesig_tid_, _bytesig_sigs_, sizeof(_bytesig_sigs_) / sizeof(int)); \
   }                                                                                         \
-  while (0)                                                                                 \
-    ;
+  while (0);
 
 #ifdef __cplusplus
 extern "C" {

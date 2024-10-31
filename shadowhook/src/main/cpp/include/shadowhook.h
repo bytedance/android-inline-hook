@@ -31,10 +31,11 @@
 #ifndef BYTEDANCE_SHADOWHOOK_H
 #define BYTEDANCE_SHADOWHOOK_H
 
+#include <link.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SHADOWHOOK_VERSION "1.0.10"
+#define SHADOWHOOK_VERSION "1.1.1"
 
 #define SHADOWHOOK_ERRNO_OK                     0
 #define SHADOWHOOK_ERRNO_PENDING                1
@@ -72,6 +73,10 @@
 #define SHADOWHOOK_ERRNO_UNHOOK_ON_UNFINISHED   33
 #define SHADOWHOOK_ERRNO_ELF_ARCH_MISMATCH      34
 #define SHADOWHOOK_ERRNO_LINKER_ARCH_MISMATCH   35
+#define SHADOWHOOK_ERRNO_DUP                    36
+#define SHADOWHOOK_ERRNO_NOT_FOUND              37
+#define SHADOWHOOK_ERRNO_NOT_SUPPORT            38
+#define SHADOWHOOK_ERRNO_INIT_TASK              39
 
 #ifdef __cplusplus
 extern "C" {
@@ -131,6 +136,13 @@ void shadowhook_dlclose(void *handle);
 void *shadowhook_dlsym(void *handle, const char *sym_name);
 void *shadowhook_dlsym_dynsym(void *handle, const char *sym_name);
 void *shadowhook_dlsym_symtab(void *handle, const char *sym_name);
+
+// register and unregister callbacks for executing dynamic library's .init .init_array / .fini .fini_array
+typedef void (*shadowhook_dl_info_t)(struct dl_phdr_info *info, size_t size, void *data);
+int shadowhook_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
 
 // for internal use
 void *shadowhook_get_prev_func(void *func);

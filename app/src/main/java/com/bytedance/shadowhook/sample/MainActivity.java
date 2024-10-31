@@ -68,16 +68,19 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.unitTestLoad).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if(!hookee2Loaded) {
-                    hookee2Loaded = true;
-                    System.loadLibrary("hookee2");
-                }
+                NativeHandler.nativeDlopen();
+            }
+        });
+
+        findViewById(R.id.unitTestUnload).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeDlclose();
             }
         });
 
         findViewById(R.id.unitTestRun).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                NativeHandler.nativeRun(hookee2Loaded);
+                NativeHandler.nativeRun();
             }
         });
 

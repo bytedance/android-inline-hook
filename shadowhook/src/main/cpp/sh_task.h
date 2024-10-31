@@ -29,6 +29,8 @@
 
 typedef struct sh_task sh_task_t;
 
+int sh_task_init(void);
+
 sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
                                          bool ignore_symbol_check, uintptr_t caller_addr);
 sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,

@@ -44,7 +44,7 @@ android {
     }
     packagingOptions {
         jniLibs {
-            excludes += ['**/libshadowhook.so']
+            excludes += ['**/libshadowhook.so', '**/libshadowhook_nothing.so']
         }
         if (rootProject.ext.useASAN) {
             doNotStrip "**/*.so"

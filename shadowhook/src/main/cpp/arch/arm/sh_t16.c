@@ -240,11 +240,11 @@ bool sh_t16_parse_it(sh_t16_it_t *it, uint16_t inst, uintptr_t pc) {
 
   // address of the first inst in the IT block, skip the IT inst itself (2 bytes)
   uintptr_t target_addr = pc - 4 + 2;
+  memset(it, 0, sizeof(sh_t16_it_t));
 
-  it->firstcond = (uint8_t)(inst >> 4u);
+  it->firstcond = (uint8_t)((inst >> 4u) & 0xF);
   uint8_t firstcond_0 = it->firstcond & 1u;
 
-  memset(it, 0, sizeof(sh_t16_it_t));
   it->insts_cnt = sh_t16_get_it_insts_count(inst);
 
   size_t insts_idx = 0, pcs_idx = 0;

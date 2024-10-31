@@ -76,13 +76,13 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable) {
       if (__predict_false(0 != bytesig_init(SIGSEGV))) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGSEGV);
       if (__predict_false(0 != bytesig_init(SIGBUS))) GOTO_END(SHADOWHOOK_ERRNO_INIT_SIGBUS);
       if (__predict_false(0 != sh_enter_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_ENTER);
+      if (__predict_false(0 != sh_safe_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_SAFE);
       sh_exit_init();
       if (SHADOWHOOK_MODE_SHARED == shadowhook_mode) {
-        if (__predict_false(0 != sh_safe_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_SAFE);
         if (__predict_false(0 != sh_hub_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_HUB);
-      } else {
-        if (__predict_false(0 != sh_linker_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_LINKER);
       }
+      if (__predict_false(0 != sh_linker_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_LINKER);
+      if (__predict_false(0 != sh_task_init())) GOTO_END(SHADOWHOOK_ERRNO_INIT_TASK);
 
 #undef GOTO_END
 
@@ -300,6 +300,50 @@ void *shadowhook_dlsym_symtab(void *handle, const char *sym_name) {
   }
   SH_SIG_EXIT
   return addr;
+}
+
+int shadowhook_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {
+#if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
+  if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__))
+    SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_NOT_SUPPORT);
+#endif
+  if (__predict_false(NULL == pre && NULL == post)) SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_INVALID_ARG);
+  int r;
+  if ((r = sh_linker_register_dl_init_callback(pre, post, data)) != 0) SH_ERRNO_SET_RET_FAIL(r);
+  SH_ERRNO_SET_RET_ERRNUM(SHADOWHOOK_ERRNO_OK);
+}
+
+int shadowhook_unregister_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {
+#if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
+  if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__))
+    SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_NOT_SUPPORT);
+#endif
+  if (__predict_false(NULL == pre && NULL == post)) SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_INVALID_ARG);
+  int r;
+  if ((r = sh_linker_unregister_dl_init_callback(pre, post, data)) != 0) SH_ERRNO_SET_RET_FAIL(r);
+  SH_ERRNO_SET_RET_ERRNUM(SHADOWHOOK_ERRNO_OK);
+}
+
+int shadowhook_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {
+#if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
+  if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__))
+    SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_NOT_SUPPORT);
+#endif
+  if (__predict_false(NULL == pre && NULL == post)) SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_INVALID_ARG);
+  int r;
+  if ((r = sh_linker_register_dl_fini_callback(pre, post, data)) != 0) SH_ERRNO_SET_RET_FAIL(r);
+  SH_ERRNO_SET_RET_ERRNUM(SHADOWHOOK_ERRNO_OK);
+}
+
+int shadowhook_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {
+#if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
+  if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__))
+    SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_NOT_SUPPORT);
+#endif
+  if (__predict_false(NULL == pre && NULL == post)) SH_ERRNO_SET_RET_FAIL(SHADOWHOOK_ERRNO_INVALID_ARG);
+  int r;
+  if ((r = sh_linker_unregister_dl_fini_callback(pre, post, data)) != 0) SH_ERRNO_SET_RET_FAIL(r);
+  SH_ERRNO_SET_RET_ERRNUM(SHADOWHOOK_ERRNO_OK);
 }
 
 void *shadowhook_get_prev_func(void *func) {

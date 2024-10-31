@@ -201,3 +201,13 @@ int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr) {
   SH_LOG_INFO("a64: unhook OK. target %" PRIxPTR, target_addr);
   return 0;
 }
+
+void sh_inst_free_after_dlclose(sh_inst_t *self, uintptr_t target_addr) {
+  // free memory space for exit
+  if (0 != self->exit_addr) sh_exit_free_after_dlclose(self->exit_addr, (uint16_t)self->exit_type);
+
+  // free memory space for enter
+  sh_enter_free(self->enter_addr);
+
+  SH_LOG_INFO("a64: free_after_dlclose OK. target %" PRIxPTR, target_addr);
+}

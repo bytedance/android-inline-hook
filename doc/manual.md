@@ -103,6 +103,7 @@ If you are using ShadowHook in an SDK project, you may need to avoid packaging l
 android {
     packagingOptions {
         exclude '**/libshadowhook.so'
+        exclude '**/libshadowhook_nothing.so'
     }
 }
 ```
@@ -113,6 +114,7 @@ On the other hand, if you are using ShadowHook in an APP project, you may need t
 android {
     packagingOptions {
         pickFirst '**/libshadowhook.so'
+        pickFirst '**/libshadowhook_nothing.so'
     }
 }
 ```
@@ -731,6 +733,64 @@ void do_unhook(void)
 {
     shadowhook_unhook(stub);
     stub = NULL;
+}
+```
+
+# Other Function
+
+```C
+#include "shadowhook.h"
+
+// register and unregister callbacks for executing dynamic library's .init .init_array / .fini .fini_array
+typedef void (*shadowhook_dl_info_t)(struct dl_phdr_info *info, size_t size, void *data);
+int shadowhook_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+int shadowhook_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
+```
+
+Register/Unregister `soinfo::call_constructors` and `soinfo::call_destructors` callback functions
+
+### Parameter
+
+* `pre` (can pass `NULL` if not needed): the proxy function before calling `call_constructors/call_destructors`.
+* `post` (can pass `NULL` if not needed): the proxy function after calling `call_constructors/call_destructors`.
+* `data` (can pass `NULL` if not needed): the data passed in the `pre`/`post` proxy function.
+
+Note: **`pre`/`post` proxy functions cannot be empty at the same time**.
+
+### Return Value
+
+* `0`: Succeeded.
+* `-1`: Failed. You can call `shadowhook_get_errno` to get the errno, and you can continue to call `shadowhook_to_errmsg` to get the error message.
+
+### Example
+
+```C
+#include "shadowhook.h"
+
+static void dl_init_pre(struct dl_phdr_info *info, size_t size, void *data) {
+  (void)size, (void)data;
+  __android_log_print(ANDROID_LOG_WARN,  "test", "dl_init, load_bias %" PRIxPTR ", %s", (uintptr_t)info->dlpi_addr, info->dlpi_name);
+}
+
+static void dl_fini_post(struct dl_phdr_info *info, size_t size, void *data) {
+  (void)size, (void)data;
+  __android_log_print(ANDROID_LOG_WARN,  "test", "dl_fini, load_bias %" PRIxPTR ", %s", (uintptr_t)info->dlpi_addr, info->dlpi_name);
+}
+
+void register_callback(void) {
+    if (0 != shadowhook_register_dl_init_callback(dl_init_pre, NULL, NULL)) {
+        int error_num = shadowhook_get_errno();
+        const char *error_msg = shadowhook_to_errmsg(error_num);
+        __android_log_print(ANDROID_LOG_WARN,  "test", "dl_init failed: %d - %s", error_num, error_msg);
+    }
+
+    if (0 != shadowhook_register_dl_fini_callback(NULL, dl_fini_post, NULL)) {
+        int error_num = shadowhook_get_errno();
+        const char *error_msg = shadowhook_to_errmsg(error_num);
+        __android_log_print(ANDROID_LOG_WARN,  "test", "dl_fini failed: %d - %s", error_num, error_msg);
+    }
 }
 ```
 

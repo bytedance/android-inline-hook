@@ -102,6 +102,7 @@ static sh_trampo_mgr_t sh_hub_trampo_mgr;
 static pthread_key_t sh_hub_stack_tls_key;
 static sh_hub_stack_t *sh_hub_stack_cache;
 static uint8_t *sh_hub_stack_cache_used;
+static pthread_key_t sh_hub_stack_reserved_tls_key;
 
 // hub trampoline template
 extern void *sh_hub_trampo_template_data __attribute__((visibility("hidden")));
@@ -225,8 +226,9 @@ static void sh_hub_stack_destroy(void *buf) {
     SH_LOG_DEBUG("hub: return stack to global cache[%zu] %p", i, buf);
   } else {
     // munmap stack
-    munmap(buf, SH_HUB_STACK_SIZE);
+    sh_safe_munmap(buf, SH_HUB_STACK_SIZE);
   }
+  sh_safe_pthread_setspecific(sh_hub_stack_reserved_tls_key, (const void *)1);
 }
 
 int sh_hub_init(void) {
@@ -235,6 +237,7 @@ int sh_hub_init(void) {
 
   // init TLS key
   if (__predict_false(0 != pthread_key_create(&sh_hub_stack_tls_key, sh_hub_stack_destroy))) return -1;
+  if (__predict_false(0 != pthread_key_create(&sh_hub_stack_reserved_tls_key, NULL))) return -1;
 
   // init hub's stack cache
   if (__predict_false(NULL == (sh_hub_stack_cache = malloc(SH_HUB_THREAD_MAX * sizeof(sh_hub_stack_t)))))
@@ -252,6 +255,9 @@ int sh_hub_init(void) {
 }
 
 static void *sh_hub_push_stack(sh_hub_t *self, void *return_address) {
+  sh_hub_stack_t *reserved_stack =
+      (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_reserved_tls_key);
+  if (reserved_stack != NULL) goto end;
   sh_hub_stack_t *stack = (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_tls_key);
 
   // create stack, only once
@@ -313,7 +319,7 @@ void sh_hub_pop_stack(void *return_address) {
   }
 }
 
-sh_hub_t *sh_hub_create(uintptr_t target_addr, uintptr_t *trampo) {
+sh_hub_t *sh_hub_create(uintptr_t *trampo) {
   size_t code_size = (uintptr_t)(&sh_hub_trampo_template_data) - (uintptr_t)(sh_hub_trampo_template_start());
   size_t data_size = sizeof(void *) + sizeof(void *);
 
@@ -341,7 +347,7 @@ sh_hub_t *sh_hub_create(uintptr_t target_addr, uintptr_t *trampo) {
   }
   SH_SIG_EXIT
 
-  // file in data
+  // fill in data
   void **data = (void **)(self->trampo + code_size);
   *data++ = (void *)sh_hub_push_stack;
   *data = (void *)self;
@@ -355,8 +361,8 @@ sh_hub_t *sh_hub_create(uintptr_t target_addr, uintptr_t *trampo) {
   *trampo = self->trampo;
 #endif
 
-  SH_LOG_INFO("hub: create trampo for target_addr %" PRIxPTR " at %" PRIxPTR ", size %zu + %zu = %zu",
-              target_addr, *trampo, code_size, data_size, code_size + data_size);
+  SH_LOG_INFO("hub: create trampo at %" PRIxPTR ", size %zu + %zu = %zu", *trampo, code_size, data_size,
+              code_size + data_size);
   return self;
 }
 
@@ -375,33 +381,32 @@ static void sh_hub_destroy_inner(sh_hub_t *self) {
 }
 
 void sh_hub_destroy(sh_hub_t *self, bool with_delay) {
-  if (SHADOWHOOK_IS_SHARED_MODE) {
-    struct timeval now;
-    gettimeofday(&now, NULL);
+  struct timeval now;
+  gettimeofday(&now, NULL);
 
-    if (!LIST_EMPTY(&sh_hub_delayed_destroy)) {
-      pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
-      sh_hub_t *hub, *hub_tmp;
-      LIST_FOREACH_SAFE(hub, &sh_hub_delayed_destroy, link, hub_tmp)
+  if (!LIST_EMPTY(&sh_hub_delayed_destroy)) {
+    pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
+    sh_hub_t *hub, *hub_tmp;
+    LIST_FOREACH_SAFE(hub, &sh_hub_delayed_destroy, link, hub_tmp) {
       if (now.tv_sec - hub->destroy_ts > SH_HUB_DELAY_SEC) {
         LIST_REMOVE(hub, link);
         sh_hub_destroy_inner(hub);
       }
-      pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
     }
+    pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
+  }
 
-    if (with_delay) {
-      self->destroy_ts = now.tv_sec;
-      sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
-      self->trampo = 0;
+  if (with_delay) {
+    self->destroy_ts = now.tv_sec;
+    sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
+    self->trampo = 0;
 
-      pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
-      LIST_INSERT_HEAD(&sh_hub_delayed_destroy, self, link);
-      pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
-    } else
-      sh_hub_destroy_inner(self);
-  } else
+    pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
+    LIST_INSERT_HEAD(&sh_hub_delayed_destroy, self, link);
+    pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
+  } else {
     sh_hub_destroy_inner(self);
+  }
 }
 
 uintptr_t sh_hub_get_orig_addr(sh_hub_t *self) {
@@ -412,7 +417,7 @@ uintptr_t *sh_hub_get_orig_addr_addr(sh_hub_t *self) {
   return &self->orig_addr;
 }
 
-int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func) {
+int sh_hub_add_proxy(sh_hub_t *self, uintptr_t proxy_func) {
   int r = SHADOWHOOK_ERRNO_OK;
 
   pthread_mutex_lock(&self->proxies_lock);
@@ -420,7 +425,7 @@ int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func) {
   // check repeated funcion
   sh_hub_proxy_t *proxy;
   SLIST_FOREACH(proxy, &self->proxies, link) {
-    if (proxy->enabled && proxy->func == (void *)func) {
+    if (proxy->enabled && proxy->func == (void *)proxy_func) {
       r = SHADOWHOOK_ERRNO_HOOK_DUP;
       goto end;
     }
@@ -428,10 +433,10 @@ int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func) {
 
   // try to re-enable an exists item
   SLIST_FOREACH(proxy, &self->proxies, link) {
-    if (proxy->func == (void *)func) {
+    if (proxy->func == (void *)proxy_func) {
       if (!proxy->enabled) __atomic_store_n((bool *)&proxy->enabled, true, __ATOMIC_SEQ_CST);
 
-      SH_LOG_INFO("hub: add(re-enable) func %" PRIxPTR, func);
+      SH_LOG_INFO("hub: add(re-enable) func %" PRIxPTR, proxy_func);
       goto end;
     }
   }
@@ -441,7 +446,7 @@ int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func) {
     r = SHADOWHOOK_ERRNO_OOM;
     goto end;
   }
-  proxy->func = (void *)func;
+  proxy->func = (void *)proxy_func;
   proxy->enabled = true;
 
   // insert to the head of the proxy-list
@@ -449,14 +454,14 @@ int sh_hub_add_proxy(sh_hub_t *self, uintptr_t func) {
   // but: __ATOMIC_RELEASE ensures readers see only fully-constructed item
   SLIST_NEXT(proxy, link) = SLIST_FIRST(&self->proxies);
   __atomic_store_n((uintptr_t *)(&SLIST_FIRST(&self->proxies)), (uintptr_t)proxy, __ATOMIC_RELEASE);
-  SH_LOG_INFO("hub: add(new) func %" PRIxPTR, func);
+  SH_LOG_INFO("hub: add(new) func %" PRIxPTR, proxy_func);
 
 end:
   pthread_mutex_unlock(&self->proxies_lock);
   return r;
 }
 
-int sh_hub_del_proxy(sh_hub_t *self, uintptr_t func, bool *have_enabled_proxy) {
+int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func, bool *have_enabled_proxy) {
   *have_enabled_proxy = false;
 
   pthread_mutex_lock(&self->proxies_lock);
@@ -464,11 +469,11 @@ int sh_hub_del_proxy(sh_hub_t *self, uintptr_t func, bool *have_enabled_proxy) {
   sh_hub_proxy_t *proxy;
   bool deleted = false;
   SLIST_FOREACH(proxy, &self->proxies, link) {
-    if (proxy->func == (void *)func) {
+    if (proxy->func == (void *)proxy_func) {
       if (proxy->enabled) __atomic_store_n((bool *)&proxy->enabled, false, __ATOMIC_SEQ_CST);
 
       deleted = true;
-      SH_LOG_INFO("hub: del func %" PRIxPTR, func);
+      SH_LOG_INFO("hub: del func %" PRIxPTR, proxy_func);
     }
 
     if (proxy->enabled && !*have_enabled_proxy) *have_enabled_proxy = true;

@@ -21,6 +21,7 @@
 
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <jni.h>
 #include <stdarg.h>
@@ -33,6 +34,8 @@
 
 #define HACKER_JNI_VERSION    JNI_VERSION_1_6
 #define HACKER_JNI_CLASS_NAME "com/bytedance/shadowhook/sample/NativeHandler"
+
+static void *hookee2_handle = NULL;
 
 static int unittest_jni_hook_sym_addr(JNIEnv *env, jobject thiz, jint api_level) {
   (void)env;
@@ -55,11 +58,28 @@ static int unittest_jni_unhook(JNIEnv *env, jobject thiz) {
   return unittest_unhook();
 }
 
-static int unittest_jni_run(JNIEnv *env, jobject thiz, jboolean hookee2_loaded) {
+static int unittest_jni_run(JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
 
-  return unittest_run(hookee2_loaded);
+  return unittest_run(NULL != hookee2_handle);
+}
+
+static void unittest_jni_dlopen(JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (NULL == hookee2_handle) hookee2_handle = dlopen("libhookee2.so", RTLD_NOW);
+}
+
+static void unittest_jni_dlclose(JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (NULL != hookee2_handle) {
+    dlclose(hookee2_handle);
+    hookee2_handle = NULL;
+  }
 }
 
 static void unittest_jni_dump_records(JNIEnv *env, jobject thiz, jstring pathname) {
@@ -95,7 +115,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   JNINativeMethod m[] = {{"nativeHookSymAddr", "(I)I", (void *)unittest_jni_hook_sym_addr},
                          {"nativeHookSymName", "(I)I", (void *)unittest_jni_hook_sym_name},
                          {"nativeUnhook", "()I", (void *)unittest_jni_unhook},
-                         {"nativeRun", "(Z)I", (void *)unittest_jni_run},
+                         {"nativeDlopen", "()V", (void *)unittest_jni_dlopen},
+                         {"nativeDlclose", "()V", (void *)unittest_jni_dlclose},
+                         {"nativeRun", "()I", (void *)unittest_jni_run},
                          {"nativeDumpRecords", "(Ljava/lang/String;)V", (void *)unittest_jni_dump_records}};
   if (0 != (*env)->RegisterNatives(env, cls, m, sizeof(m) / sizeof(m[0]))) return JNI_ERR;
 

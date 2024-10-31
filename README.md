@@ -1,7 +1,7 @@
 # ShadowHook
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.0.10-red.svg?style=flat)
+![](https://img.shields.io/badge/release-1.1.1-red.svg?style=flat)
 ![](https://img.shields.io/badge/Android-4.1%20--%2015-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.0.10'
+    implementation 'com.bytedance.android:shadowhook:1.1.1'
 }
 ```
 
@@ -102,6 +102,7 @@ If you are using ShadowHook in an SDK project, you may need to avoid packaging l
 android {
     packagingOptions {
         exclude '**/libshadowhook.so'
+        exclude '**/libshadowhook_nothing.so'
     }
 }
 ```
@@ -112,6 +113,7 @@ On the other hand, if you are using ShadowHook in an APP project, you may need t
 android {
     packagingOptions {
         pickFirst '**/libshadowhook.so'
+        pickFirst '**/libshadowhook_nothing.so'
     }
 }
 ```

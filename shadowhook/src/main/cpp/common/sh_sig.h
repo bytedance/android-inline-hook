@@ -43,7 +43,6 @@
 #define SH_SIG_EXIT \
   }                 \
   }                 \
-  while (0)         \
-    ;
+  while (0);
 
 #endif

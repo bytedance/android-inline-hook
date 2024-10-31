@@ -30,6 +30,11 @@
         shadowhook_dlsym_dynsym;
         shadowhook_dlsym_symtab;
 
+        shadowhook_register_dl_init_callback;
+        shadowhook_unregister_dl_init_callback;
+        shadowhook_register_dl_fini_callback;
+        shadowhook_unregister_dl_fini_callback;
+
         shadowhook_get_prev_func;
         shadowhook_pop_stack;
         shadowhook_allow_reentrant;
