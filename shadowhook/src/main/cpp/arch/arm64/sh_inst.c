@@ -88,9 +88,8 @@ static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_in
 
   // alloc an exit for absolute jump
   sh_a64_absolute_jump_with_br(self->exit, new_addr);
-  if (0 !=
-      (r = sh_exit_alloc(&self->exit_addr, (uint16_t *)&self->exit_type, pc, dlinfo, (uint8_t *)(self->exit),
-                         sizeof(self->exit), SH_INST_A64_B_RANGE_LOW, SH_INST_A64_B_RANGE_HIGH)))
+  if (0 != (r = sh_exit_alloc(&self->exit_addr, (uint16_t *)&self->exit_type, pc, dlinfo,
+                              (uint8_t *)(self->exit), SH_INST_A64_B_RANGE_LOW, SH_INST_A64_B_RANGE_HIGH)))
     return r;
 
   // rewrite
@@ -119,7 +118,7 @@ static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_in
   return 0;
 
 err:
-  sh_exit_free(self->exit_addr, (uint16_t)self->exit_type, (uint8_t *)(self->exit), sizeof(self->exit));
+  sh_exit_free(self->exit_addr, (uint16_t)self->exit_type, (uint8_t *)(self->exit));
   self->exit_addr = 0;  // this is a flag for with-exit or without-exit
   return r;
 }
@@ -191,8 +190,7 @@ int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr) {
 
   // free memory space for exit
   if (0 != self->exit_addr)
-    if (0 != (r = sh_exit_free(self->exit_addr, (uint16_t)self->exit_type, (uint8_t *)(self->exit),
-                               sizeof(self->exit))))
+    if (0 != (r = sh_exit_free(self->exit_addr, (uint16_t)self->exit_type, (uint8_t *)(self->exit))))
       return r;
 
   // free memory space for enter

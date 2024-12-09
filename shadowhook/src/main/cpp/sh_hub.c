@@ -328,9 +328,10 @@ sh_hub_t *sh_hub_create(uintptr_t *trampo) {
   SLIST_INIT(&self->proxies);
   pthread_mutex_init(&self->proxies_lock, NULL);
   self->orig_addr = 0;
+  self->destroy_ts = 0;
 
   // alloc memory for trampoline
-  if (0 == (self->trampo = sh_trampo_alloc(&sh_hub_trampo_mgr, 0, 0, 0))) {
+  if (0 == (self->trampo = sh_trampo_alloc(&sh_hub_trampo_mgr))) {
     free(self);
     return NULL;
   }
@@ -381,14 +382,13 @@ static void sh_hub_destroy_inner(sh_hub_t *self) {
 }
 
 void sh_hub_destroy(sh_hub_t *self, bool with_delay) {
-  struct timeval now;
-  gettimeofday(&now, NULL);
+  time_t now = sh_util_get_stable_timestamp();
 
   if (!LIST_EMPTY(&sh_hub_delayed_destroy)) {
     pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
     sh_hub_t *hub, *hub_tmp;
     LIST_FOREACH_SAFE(hub, &sh_hub_delayed_destroy, link, hub_tmp) {
-      if (now.tv_sec - hub->destroy_ts > SH_HUB_DELAY_SEC) {
+      if (now - hub->destroy_ts > SH_HUB_DELAY_SEC) {
         LIST_REMOVE(hub, link);
         sh_hub_destroy_inner(hub);
       }
@@ -397,7 +397,7 @@ void sh_hub_destroy(sh_hub_t *self, bool with_delay) {
   }
 
   if (with_delay) {
-    self->destroy_ts = now.tv_sec;
+    self->destroy_ts = now;
     sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
     self->trampo = 0;
 

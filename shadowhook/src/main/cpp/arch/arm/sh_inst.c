@@ -268,7 +268,7 @@ static int sh_inst_hook_thumb_with_exit(sh_inst_t *self, uintptr_t target_addr, 
   // alloc an exit for absolute jump
   sh_t32_absolute_jump((uint16_t *)self->exit, true, new_addr);
   if (0 != (r = sh_exit_alloc(&self->exit_addr, &self->exit_type, pc, dlinfo, (uint8_t *)(self->exit),
-                              sizeof(self->exit), SH_INST_T32_B_RANGE_LOW, SH_INST_T32_B_RANGE_HIGH)))
+                              SH_INST_T32_B_RANGE_LOW, SH_INST_T32_B_RANGE_HIGH)))
     return r;
 
   // rewrite
@@ -299,7 +299,7 @@ static int sh_inst_hook_thumb_with_exit(sh_inst_t *self, uintptr_t target_addr, 
   return 0;
 
 err:
-  sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit), sizeof(self->exit));
+  sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit));
   self->exit_addr = 0;  // this is a flag for with-exit or without-exit
   return r;
 }
@@ -395,7 +395,7 @@ static int sh_inst_hook_arm_with_exit(sh_inst_t *self, uintptr_t target_addr, xd
   // alloc an exit for absolute jump
   sh_a32_absolute_jump(self->exit, new_addr);
   if (0 != (r = sh_exit_alloc(&self->exit_addr, &self->exit_type, pc, dlinfo, (uint8_t *)(self->exit),
-                              sizeof(self->exit), SH_INST_A32_B_RANGE_LOW, SH_INST_A32_B_RANGE_HIGH)))
+                              SH_INST_A32_B_RANGE_LOW, SH_INST_A32_B_RANGE_HIGH)))
     return r;
 
   // rewrite
@@ -424,7 +424,7 @@ static int sh_inst_hook_arm_with_exit(sh_inst_t *self, uintptr_t target_addr, xd
   return 0;
 
 err:
-  sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit), sizeof(self->exit));
+  sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit));
   self->exit_addr = 0;  // this is a flag for with-exit or without-exit
   return r;
 }
@@ -511,9 +511,7 @@ int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr) {
 
   // free memory space for exit
   if (0 != self->exit_addr)
-    if (0 !=
-        (r = sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit), sizeof(self->exit))))
-      return r;
+    if (0 != (r = sh_exit_free(self->exit_addr, self->exit_type, (uint8_t *)(self->exit)))) return r;
 
   // free memory space for enter
   sh_enter_free(self->enter_addr);

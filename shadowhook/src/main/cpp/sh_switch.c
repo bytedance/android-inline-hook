@@ -33,6 +33,7 @@
 
 #include "sh_config.h"
 #include "sh_errno.h"
+#include "sh_exit.h"
 #include "sh_hub.h"
 #include "sh_inst.h"
 #include "sh_linker.h"
@@ -357,7 +358,8 @@ void sh_switch_free_after_dlclose(xdl_info_t *dlinfo) {
 
   sh_switch_t *self, *tmp;
   RB_FOREACH_SAFE(self, sh_switch_tree, &sh_switches, tmp) {
-    if (sh_util_is_in_elf_pt_load(dlinfo, self->target_addr)) {
+    if (sh_util_is_in_elf_pt_load(dlinfo->dli_fbase, dlinfo->dlpi_phdr, dlinfo->dlpi_phnum,
+                                  self->target_addr)) {
       RB_REMOVE(sh_switch_tree, &sh_switches, self);
       sh_inst_free_after_dlclose(&self->inst, self->target_addr);
       SH_LOG_INFO("switch: free_after_dlclose OK. target_addr %" PRIxPTR, self->target_addr);
@@ -366,4 +368,6 @@ void sh_switch_free_after_dlclose(xdl_info_t *dlinfo) {
   }
 
   pthread_rwlock_unlock(&sh_switches_lock);  // SYNC - end
+
+  sh_exit_free_after_dlclose_by_dlinfo(dlinfo);
 }

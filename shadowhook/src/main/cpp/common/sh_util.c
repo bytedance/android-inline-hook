@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/sysinfo.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -38,9 +39,14 @@
 #include "xdl.h"
 
 static size_t sh_util_page_size = 0;
+static time_t sh_util_system_uptime = 0;
 
 __attribute__((constructor)) static void sh_util_ctor(void) {
   sh_util_page_size = (size_t)getpagesize();
+
+  struct sysinfo info;
+  sysinfo(&info);
+  sh_util_system_uptime = info.uptime;
 }
 
 size_t sh_util_get_page_size(void) {
@@ -565,16 +571,41 @@ size_t sh_util_snprintf(char *buffer, size_t buffer_size, const char *format, ..
   return buffer_len;
 }
 
-bool sh_util_is_in_elf_pt_load(xdl_info_t *dlinfo, uintptr_t addr) {
-  if (addr < (uintptr_t)dlinfo->dli_fbase) return false;
+bool sh_util_is_in_elf_pt_load(void *dli_fbase, const ElfW(Phdr) *dlpi_phdr, size_t dlpi_phnum,
+                               uintptr_t addr) {
+  if (addr < (uintptr_t)dli_fbase) return false;
 
-  uintptr_t vaddr = addr - (uintptr_t)dlinfo->dli_fbase;
-  for (size_t i = 0; i < dlinfo->dlpi_phnum; i++) {
-    const ElfW(Phdr) *phdr = &(dlinfo->dlpi_phdr[i]);
+  uintptr_t vaddr = addr - (uintptr_t)dli_fbase;
+  for (size_t i = 0; i < dlpi_phnum; i++) {
+    const ElfW(Phdr) *phdr = &dlpi_phdr[i];
     if (PT_LOAD != phdr->p_type) continue;
 
     if (phdr->p_vaddr <= vaddr && vaddr < phdr->p_vaddr + phdr->p_memsz) return true;
   }
 
   return false;
+}
+
+time_t sh_util_get_process_uptime(void) {
+  struct sysinfo info;
+  sysinfo(&info);
+  if (__predict_false(info.uptime < sh_util_system_uptime)) return 0;
+  return info.uptime - sh_util_system_uptime;
+}
+
+time_t sh_util_get_stable_timestamp(void) {
+  // The timestamp returned here is used to "control the delayed release of memory".
+  //
+  // First, the system time returned by gettimeofday() should not be used, because the system time can be
+  // modified at any time.
+  // Then, the system uptime or process uptime should not be used directly, but a constant time offset value
+  // should always be added, because uptime may be a very small value, which may be smaller than the "delay",
+  // and the initial value of the timestamp is generally zero, which will cause bugs.
+  //
+  // Another benefit of using the system uptime or process uptime is that we can be sure that uint32_t is
+  // large enough to hold this value. The system time usually needs to use uint64_t type. This can save memory
+  // in scenarios where many timestamps need to be stored.
+  //
+  // Currently we use the process uptime plus a constant offset.
+  return sh_util_get_process_uptime() + 24 * 60 * 60;
 }

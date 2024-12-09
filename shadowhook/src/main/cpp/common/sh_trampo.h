@@ -30,9 +30,8 @@
 
 typedef struct sh_trampo_page {
   uintptr_t ptr;
-  uint32_t *flags;
-  time_t *timestamps;
   SLIST_ENTRY(sh_trampo_page, ) link;
+  uint32_t flags[];  // flags for each trampo: 1 bit for used/unused, 31 bits for timestamp
 } sh_trampo_page_t;
 typedef SLIST_HEAD(sh_trampo_page_list, sh_trampo_page, ) sh_trampo_page_list_t;
 
@@ -41,10 +40,11 @@ typedef struct sh_trampo_mgr {
   pthread_mutex_t pages_lock;
   const char *page_name;
   size_t trampo_size;
-  time_t delay_sec;
+  time_t delay_sec;  // must be greater than 0
 } sh_trampo_mgr_t;
 
 void sh_trampo_init_mgr(sh_trampo_mgr_t *mgr, const char *page_name, size_t trampo_size, time_t delay_sec);
-
-uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t low_offset, uintptr_t high_offset);
+uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr);
+uintptr_t sh_trampo_alloc_near(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t low_offset,
+                               uintptr_t high_offset);
 void sh_trampo_free(sh_trampo_mgr_t *mgr, uintptr_t trampo);

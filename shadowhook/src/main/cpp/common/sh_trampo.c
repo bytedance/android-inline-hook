@@ -44,50 +44,50 @@ void sh_trampo_init_mgr(sh_trampo_mgr_t *mgr, const char *page_name, size_t tram
   mgr->delay_sec = delay_sec;
 }
 
-uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t range_low, uintptr_t range_high) {
-  uintptr_t trampo = 0;
-  uintptr_t new_ptr;
-  uintptr_t new_ptr_prctl = (uintptr_t)MAP_FAILED;
+uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr) {
+  return sh_trampo_alloc_near(mgr, 0, 0, 0);
+}
+
+uintptr_t sh_trampo_alloc_near(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t range_low,
+                               uintptr_t range_high) {
+  uint32_t now = (uint32_t)sh_util_get_stable_timestamp();
   size_t trampo_page_size = sh_util_get_page_size();
-  size_t count = trampo_page_size / mgr->trampo_size;
+  size_t trampo_count = trampo_page_size / mgr->trampo_size;
+  uintptr_t trampo = 0;
+  uintptr_t new_ptr = (uintptr_t)MAP_FAILED;
+  uintptr_t new_ptr_prctl = (uintptr_t)MAP_FAILED;
 
   if (range_low > hint) range_low = hint;
   if (range_high > UINTPTR_MAX - hint) range_high = UINTPTR_MAX - hint;
-
-  struct timeval now;
-  if (mgr->delay_sec > 0) gettimeofday(&now, NULL);
 
   pthread_mutex_lock(&mgr->pages_lock);
 
   // try to find an unused trampo
   sh_trampo_page_t *page;
   SLIST_FOREACH(page, &mgr->pages, link) {
-    // check hit range
-    uintptr_t page_trampo_start = page->ptr;
-    uintptr_t page_trampo_end = page->ptr + trampo_page_size - mgr->trampo_size;
-    if (hint > 0 && ((page_trampo_end < hint - range_low) || (hint + range_high < page_trampo_start)))
-      continue;
+    // check page's hit range: [page_start, page_end)
+    uintptr_t page_start = page->ptr;
+    uintptr_t page_end = page->ptr + trampo_count * mgr->trampo_size;
+    if (hint > 0 && ((page_end <= hint - range_low) || (hint + range_high < page_start))) continue;
 
-    for (uintptr_t i = 0; i < count; i++) {
-      size_t flags_idx = i / 32;
-      uint32_t mask = (uint32_t)1 << (i % 32);
-      if (0 == (page->flags[flags_idx] & mask))  // check flag
-      {
-        // check timestamp
-        if (mgr->delay_sec > 0 &&
-            (now.tv_sec <= page->timestamps[i] || now.tv_sec - page->timestamps[i] <= mgr->delay_sec))
-          continue;
+    for (uintptr_t i = 0; i < trampo_count; i++) {
+      // check if used
+      uint32_t used = page->flags[i] >> 31;
+      if (used) continue;
 
-        // check hit range
-        uintptr_t cur = page->ptr + (mgr->trampo_size * i);
-        if (hint > 0 && ((cur < hint - range_low) || (hint + range_high < cur))) continue;
+      // check timestamp
+      uint32_t ts = page->flags[i] & 0x7FFFFFFF;
+      if (now <= ts || now - ts <= (uint32_t)mgr->delay_sec) continue;
 
-        // OK
-        page->flags[flags_idx] |= mask;
-        trampo = cur;
-        memset((void *)trampo, 0, mgr->trampo_size);
-        goto end;
-      }
+      // check current trampo's hit range
+      uintptr_t cur = page->ptr + (mgr->trampo_size * i);
+      if (hint > 0 && ((cur < hint - range_low) || (hint + range_high < cur))) continue;
+
+      // OK
+      page->flags[i] |= 0x80000000;
+      trampo = cur;
+      memset((void *)trampo, 0, mgr->trampo_size);
+      goto end;
     }
   }
 
@@ -97,35 +97,27 @@ uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t range_
   if ((uintptr_t)MAP_FAILED == new_ptr) goto err;
   new_ptr_prctl = new_ptr;
 
-  // check hit range
-  if (hint > 0 &&
-      ((hint - range_low >= new_ptr + trampo_page_size - mgr->trampo_size) || (hint + range_high < new_ptr)))
-    goto err;
+  // check page's hit range: [page_start, page_end)
+  uintptr_t page_start = new_ptr;
+  uintptr_t page_end = new_ptr + trampo_count * mgr->trampo_size;
+  if (hint > 0 && ((page_end <= hint - range_low) || (hint + range_high < page_start))) goto err;
 
   // create a new trampo-page info
-  if (NULL == (page = calloc(1, sizeof(sh_trampo_page_t)))) goto err;
+  if (NULL == (page = calloc(1, sizeof(sh_trampo_page_t) + trampo_count * sizeof(uint32_t)))) goto err;
   memset((void *)new_ptr, 0, trampo_page_size);
   page->ptr = new_ptr;
   new_ptr = (uintptr_t)MAP_FAILED;
-  if (NULL == (page->flags = calloc(1, SH_UTIL_ALIGN_END(count, 32) / 8))) goto err;
-  page->timestamps = NULL;
-  if (mgr->delay_sec > 0) {
-    if (NULL == (page->timestamps = calloc(1, count * sizeof(time_t)))) goto err;
-  }
   SLIST_INSERT_HEAD(&mgr->pages, page, link);
 
   // alloc trampo from the new memory page
-  for (uintptr_t i = 0; i < count; i++) {
-    size_t flags_idx = i / 32;
-    uint32_t mask = (uint32_t)1 << (i % 32);
-
-    // check hit range
-    uintptr_t find = page->ptr + (mgr->trampo_size * i);
-    if (hint > 0 && ((find < hint - range_low) || (hint + range_high < find))) continue;
+  for (uintptr_t i = 0; i < trampo_count; i++) {
+    // check current trampo's hit range
+    uintptr_t cur = page->ptr + (mgr->trampo_size * i);
+    if (hint > 0 && ((cur < hint - range_low) || (hint + range_high < cur))) continue;
 
     // OK
-    page->flags[flags_idx] |= mask;
-    trampo = find;
+    page->flags[i] |= 0x80000000;
+    trampo = cur;
     break;
   }
   if (0 == trampo) abort();
@@ -140,8 +132,6 @@ err:
   pthread_mutex_unlock(&mgr->pages_lock);
   if (NULL != page) {
     if (0 != page->ptr) munmap((void *)page->ptr, trampo_page_size);
-    if (NULL != page->flags) free(page->flags);
-    if (NULL != page->timestamps) free(page->timestamps);
     free(page);
   }
   if ((uintptr_t)MAP_FAILED != new_ptr) munmap((void *)new_ptr, trampo_page_size);
@@ -149,20 +139,20 @@ err:
 }
 
 void sh_trampo_free(sh_trampo_mgr_t *mgr, uintptr_t trampo) {
-  struct timeval now;
-  if (mgr->delay_sec > 0) gettimeofday(&now, NULL);
+  time_t now = sh_util_get_stable_timestamp();
+  size_t trampo_page_size = sh_util_get_page_size();
+  size_t trampo_count = trampo_page_size / mgr->trampo_size;
 
   pthread_mutex_lock(&mgr->pages_lock);
 
-  size_t trampo_page_size = sh_util_get_page_size();
   sh_trampo_page_t *page;
   SLIST_FOREACH(page, &mgr->pages, link) {
-    if (page->ptr <= trampo && trampo < page->ptr + trampo_page_size) {
-      uintptr_t i = (trampo - page->ptr) / mgr->trampo_size;
-      size_t flags_idx = i / 32;
-      uint32_t mask = (uint32_t)1 << (i % 32);
-      if (mgr->delay_sec > 0) page->timestamps[i] = now.tv_sec;
-      page->flags[flags_idx] &= ~mask;
+    // check page's hit range: [page_start, page_end)
+    uintptr_t page_start = page->ptr;
+    uintptr_t page_end = page->ptr + trampo_count * mgr->trampo_size;
+    if (page_start <= trampo && trampo < page_end) {
+      uintptr_t i = (trampo - page_start) / mgr->trampo_size;
+      page->flags[i] = now & 0x7FFFFFFF;
       break;
     }
   }

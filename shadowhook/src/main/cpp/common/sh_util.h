@@ -114,4 +114,8 @@ struct tm *sh_util_localtime_r(const time_t *timep, long gmtoff, struct tm *resu
 size_t sh_util_vsnprintf(char *buffer, size_t buffer_size, const char *format, va_list args);
 size_t sh_util_snprintf(char *buffer, size_t buffer_size, const char *format, ...);
 
-bool sh_util_is_in_elf_pt_load(xdl_info_t *dlinfo, uintptr_t addr);
+bool sh_util_is_in_elf_pt_load(void *dli_fbase, const ElfW(Phdr) *dlpi_phdr, size_t dlpi_phnum,
+                               uintptr_t addr);
+
+time_t sh_util_get_process_uptime(void);
+time_t sh_util_get_stable_timestamp(void);

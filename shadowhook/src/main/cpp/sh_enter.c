@@ -39,7 +39,7 @@ int sh_enter_init(void) {
 }
 
 uintptr_t sh_enter_alloc(void) {
-  return sh_trampo_alloc(&sh_enter_trampo_mgr, 0, 0, 0);
+  return sh_trampo_alloc(&sh_enter_trampo_mgr);
 }
 
 void sh_enter_free(uintptr_t enter) {

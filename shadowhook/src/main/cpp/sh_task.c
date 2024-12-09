@@ -210,7 +210,7 @@ static void sh_task_dl_fini_post(struct dl_phdr_info *info, size_t size, void *d
   sh_task_t *task;
   TAILQ_FOREACH(task, &sh_tasks, link) {
     if (task->finished && task->lib_name != NULL && task->sym_name != NULL && 0 != task->target_addr &&
-        sh_util_is_in_elf_pt_load(&dlinfo, task->target_addr)) {
+        sh_util_is_in_elf_pt_load(dlinfo.dli_fbase, dlinfo.dlpi_phdr, dlinfo.dlpi_phnum, task->target_addr)) {
       task->target_addr = 0;
       task->error = false;
       task->finished = false;
