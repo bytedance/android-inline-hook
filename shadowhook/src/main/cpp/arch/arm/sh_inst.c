@@ -34,6 +34,7 @@
 #include "sh_config.h"
 #include "sh_enter.h"
 #include "sh_exit.h"
+#include "sh_linker.h"
 #include "sh_log.h"
 #include "sh_sig.h"
 #include "sh_t16.h"
@@ -462,11 +463,15 @@ static int sh_inst_hook_arm_without_exit(sh_inst_t *self, uintptr_t target_addr,
 }
 
 int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
-                 uintptr_t *orig_addr, uintptr_t *orig_addr2) {
+                 uintptr_t *orig_addr, uintptr_t *orig_addr2, bool ignore_symbol_check) {
+  int r;
+  if (NULL == dlinfo->dli_fbase) {
+    if (0 != (r = sh_linker_get_dlinfo_by_addr((void *)target_addr, dlinfo, ignore_symbol_check))) return r;
+  }
+
   self->enter_addr = sh_enter_alloc();
   if (0 == self->enter_addr) return SHADOWHOOK_ERRNO_HOOK_ENTER;
 
-  int r;
   if (SH_UTIL_IS_THUMB(target_addr)) {
 #ifdef SH_CONFIG_TRY_WITH_EXIT
     if (0 == (r = sh_inst_hook_thumb_with_exit(self, target_addr, dlinfo, new_addr, orig_addr, orig_addr2)))

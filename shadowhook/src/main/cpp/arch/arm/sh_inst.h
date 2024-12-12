@@ -22,6 +22,7 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "xdl.h"
@@ -37,7 +38,7 @@ typedef struct {
 } sh_inst_t;
 
 int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
-                 uintptr_t *orig_addr, uintptr_t *orig_addr2);
+                 uintptr_t *orig_addr, uintptr_t *orig_addr2, bool ignore_symbol_check);
 int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr);
 
 void sh_inst_free_after_dlclose(sh_inst_t *self, uintptr_t target_addr);

@@ -45,7 +45,5 @@ int sh_linker_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_
 int sh_linker_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
 
 // linker utils
-int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name, size_t lib_name_sz,
-                                 char *sym_name, size_t sym_name_sz, bool ignore_symbol_check);
-int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo,
-                                     char *real_lib_name, size_t real_lib_name_sz);
+int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, bool ignore_symbol_check);
+int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo);

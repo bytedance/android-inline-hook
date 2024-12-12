@@ -65,10 +65,8 @@ static void sh_exit_init_out_library(void) {
   sh_trampo_init_mgr(&sh_exit_trampo_mgr, SH_EXIT_PAGE_NAME, SH_EXIT_SZ, SH_EXIT_DELAY_SEC);
 }
 
-static int sh_exit_alloc_out_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
-                                     size_t range_low, size_t range_high) {
-  (void)dlinfo;
-
+static int sh_exit_alloc_out_library(uintptr_t *exit_addr, uintptr_t pc, uint8_t *exit, size_t range_low,
+                                     size_t range_high) {
   uintptr_t addr = sh_trampo_alloc_near(&sh_exit_trampo_mgr, pc, range_low, range_high);
   if (0 == addr) return -1;
 
@@ -321,10 +319,10 @@ static int sh_exit_alloc_in_library(uintptr_t *exit_addr, uintptr_t pc, xdl_info
   sh_exit_elf_info_t *elfinfo = sh_exit_find_elf_info_by_pc(pc);
   if (NULL == elfinfo) {
     // get dlinfo by pc
-    if (NULL == dlinfo) {
-      xdl_info_t dlinfo_obj;
-      dlinfo = &dlinfo_obj;
-      if (0 != (r = sh_linker_get_dlinfo_by_addr((void *)pc, dlinfo, NULL, 0, NULL, 0, true))) goto end;
+    if (NULL == dlinfo->dli_fbase || NULL == dlinfo->dlpi_phdr) {
+      xdl_info_t dlinfo_tmp;
+      dlinfo = &dlinfo_tmp;
+      if (0 != (r = sh_linker_get_dlinfo_by_addr((void *)pc, dlinfo, true))) goto end;
     }
 
     // create elfinfo by dlinfo
@@ -406,7 +404,7 @@ int sh_exit_alloc(uintptr_t *exit_addr, uint16_t *exit_type, uintptr_t pc, xdl_i
 
   // (1) try out-library mode first. Because ELF gaps are a valuable non-renewable resource.
   *exit_type = SH_EXIT_TYPE_OUT_LIBRARY;
-  r = sh_exit_alloc_out_library(exit_addr, pc, dlinfo, exit, range_low, range_high);
+  r = sh_exit_alloc_out_library(exit_addr, pc, exit, range_low, range_high);
   if (0 == r) goto ok;
 
   // (2) try in-library mode.

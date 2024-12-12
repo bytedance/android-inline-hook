@@ -22,15 +22,16 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "xdl.h"
 
 int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, size_t *backup_len,
-                   xdl_info_t *dlinfo);
+                   xdl_info_t *dlinfo, bool ignore_symbol_check);
 int sh_switch_unhook(uintptr_t target_addr, uintptr_t new_addr);
 
 int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                             size_t *backup_len, xdl_info_t *dlinfo);
+                             size_t *backup_len, xdl_info_t *dlinfo, bool ignore_symbol_check);
 
 void sh_switch_free_after_dlclose(xdl_info_t *dlinfo);

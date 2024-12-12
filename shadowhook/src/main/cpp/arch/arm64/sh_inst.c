@@ -31,6 +31,7 @@
 #include "sh_config.h"
 #include "sh_enter.h"
 #include "sh_exit.h"
+#include "sh_linker.h"
 #include "sh_log.h"
 #include "sh_sig.h"
 #include "sh_util.h"
@@ -84,7 +85,8 @@ static int sh_inst_hook_with_exit(sh_inst_t *self, uintptr_t target_addr, xdl_in
   uintptr_t pc = target_addr;
   self->backup_len = 4;
 
-  if (dlinfo->dli_ssize < self->backup_len) return SHADOWHOOK_ERRNO_HOOK_SYMSZ;
+  // Any function should have at least one instruction,
+  // so the arm64 function symbol size must be greater than or equal to 4.
 
   // alloc an exit for absolute jump
   sh_a64_absolute_jump_with_br(self->exit, new_addr);
@@ -155,7 +157,7 @@ static int sh_inst_hook_without_exit(sh_inst_t *self, uintptr_t target_addr, xdl
 }
 
 int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
-                 uintptr_t *orig_addr, uintptr_t *orig_addr2) {
+                 uintptr_t *orig_addr, uintptr_t *orig_addr2, bool ignore_symbol_check) {
   self->enter_addr = sh_enter_alloc();
   if (0 == self->enter_addr) return SHADOWHOOK_ERRNO_HOOK_ENTER;
 
@@ -163,9 +165,18 @@ int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uin
 #ifdef SH_CONFIG_TRY_WITH_EXIT
   if (0 == (r = sh_inst_hook_with_exit(self, target_addr, dlinfo, new_addr, orig_addr, orig_addr2))) return r;
 #endif
+
+  if (NULL == dlinfo->dli_fbase) {
+    if (ignore_symbol_check) {
+      dlinfo->dli_ssize = 1024;  // big enough
+    } else {
+      if (0 != (r = sh_linker_get_dlinfo_by_addr((void *)target_addr, dlinfo, false))) goto err;
+    }
+  }
   if (0 == (r = sh_inst_hook_without_exit(self, target_addr, dlinfo, new_addr, orig_addr, orig_addr2)))
     return r;
 
+err:
   // hook failed
   if (NULL != orig_addr) *orig_addr = 0;
   if (NULL != orig_addr2) *orig_addr2 = 0;

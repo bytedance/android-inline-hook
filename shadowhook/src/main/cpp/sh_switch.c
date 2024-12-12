@@ -124,7 +124,7 @@ static void sh_switch_dump_enter(sh_switch_t *self) {
 }
 
 static int sh_switch_hook_unique(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                 size_t *backup_len, xdl_info_t *dlinfo) {
+                                 size_t *backup_len, xdl_info_t *dlinfo, bool ignore_symbol_check) {
   sh_switch_t *self = sh_switch_find(target_addr);
   if (NULL != self) return SHADOWHOOK_ERRNO_HOOK_DUP;
 
@@ -148,7 +148,8 @@ static int sh_switch_hook_unique(uintptr_t target_addr, uintptr_t new_addr, uint
       (NULL != safe_orig_addr_addr && 0 == __atomic_load_n(safe_orig_addr_addr, __ATOMIC_ACQUIRE))
           ? safe_orig_addr_addr
           : NULL;
-  if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, new_addr, orig_addr, orig_addr2))) {
+  if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, new_addr, orig_addr, orig_addr2,
+                             ignore_symbol_check))) {
     RB_REMOVE(sh_switch_tree, &sh_switches, self);
     useless = self;
     goto end;
@@ -163,7 +164,7 @@ end:
 }
 
 static int sh_switch_hook_shared(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                 size_t *backup_len, xdl_info_t *dlinfo) {
+                                 size_t *backup_len, xdl_info_t *dlinfo, bool ignore_symbol_check) {
   int r;
 
   pthread_rwlock_rdlock(&sh_switches_lock);  // SYNC(read) - start
@@ -201,8 +202,9 @@ static int sh_switch_hook_shared(uintptr_t target_addr, uintptr_t new_addr, uint
   } else {
     // do hook
     uintptr_t *safe_orig_addr_addr = sh_safe_get_orig_addr_addr(target_addr);
-    if (0 != (r = sh_inst_hook(&self->inst, target_addr, dlinfo, hub_trampo,
-                               sh_hub_get_orig_addr_addr(self->hub), safe_orig_addr_addr))) {
+    if (0 !=
+        (r = sh_inst_hook(&self->inst, target_addr, dlinfo, hub_trampo, sh_hub_get_orig_addr_addr(self->hub),
+                          safe_orig_addr_addr, ignore_symbol_check))) {
       RB_REMOVE(sh_switch_tree, &sh_switches, self);
       useless = self;
       goto end;
@@ -231,12 +233,12 @@ end:
 }
 
 int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, size_t *backup_len,
-                   xdl_info_t *dlinfo) {
+                   xdl_info_t *dlinfo, bool ignore_symbol_check) {
   int r;
   if (SHADOWHOOK_IS_UNIQUE_MODE)
-    r = sh_switch_hook_unique(target_addr, new_addr, orig_addr, backup_len, dlinfo);
+    r = sh_switch_hook_unique(target_addr, new_addr, orig_addr, backup_len, dlinfo, ignore_symbol_check);
   else
-    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo);
+    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo, ignore_symbol_check);
 
   if (0 == r)
     SH_LOG_INFO("switch: hook in %s mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,
@@ -251,7 +253,7 @@ static int sh_switch_hook_unique_invisible(uintptr_t target_addr, uintptr_t new_
 
   // do hook
   sh_inst_t inst;
-  int r = sh_inst_hook(&inst, target_addr, dlinfo, new_addr, orig_addr, NULL);
+  int r = sh_inst_hook(&inst, target_addr, dlinfo, new_addr, orig_addr, NULL, false);
 
   pthread_rwlock_unlock(&sh_switches_lock);  // SYNC - end
 
@@ -260,12 +262,14 @@ static int sh_switch_hook_unique_invisible(uintptr_t target_addr, uintptr_t new_
 }
 
 int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                             size_t *backup_len, xdl_info_t *dlinfo) {
+                             size_t *backup_len, xdl_info_t *dlinfo, bool ignore_symbol_check) {
+  (void)ignore_symbol_check;
+
   int r;
   if (SHADOWHOOK_IS_UNIQUE_MODE)
     r = sh_switch_hook_unique_invisible(target_addr, new_addr, orig_addr, backup_len, dlinfo);
   else
-    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo);
+    r = sh_switch_hook_shared(target_addr, new_addr, orig_addr, backup_len, dlinfo, false);
 
   if (0 == r)
     SH_LOG_INFO("switch: hook(invisible) in %s mode OK: target_addr %" PRIxPTR ", new_addr %" PRIxPTR,

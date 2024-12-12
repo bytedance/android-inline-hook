@@ -50,7 +50,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpadded"
 struct sh_task {
-  char *lib_name;  // NULL means: hook_sym_addr or hook_func_addr
+  char *lib_name;
   char *sym_name;
   uintptr_t target_addr;
   uintptr_t new_addr;
@@ -61,6 +61,7 @@ struct sh_task {
   bool finished;
   bool error;
   bool ignore_symbol_check;
+  bool hook_by_target_addr;
   TAILQ_ENTRY(sh_task, ) link;
 };
 #pragma clang diagnostic pop
@@ -88,6 +89,7 @@ sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_ad
   self->finished = false;
   self->error = false;
   self->ignore_symbol_check = ignore_symbol_check;
+  self->hook_by_target_addr = true;
 
   return self;
 }
@@ -109,6 +111,7 @@ sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name
   self->finished = false;
   self->error = false;
   self->ignore_symbol_check = false;
+  self->hook_by_target_addr = false;
 
   return self;
 
@@ -148,20 +151,17 @@ static int sh_task_hook_pending(struct dl_phdr_info *info, size_t size, void *ar
     }
 
     xdl_info_t dlinfo;
-    char real_lib_name[512];
-    int r = sh_linker_get_dlinfo_by_sym_name(task->lib_name, task->sym_name, &dlinfo, real_lib_name,
-                                             sizeof(real_lib_name));
+    int r = sh_linker_get_dlinfo_by_sym_name(task->lib_name, task->sym_name, &dlinfo);
     task->target_addr = (uintptr_t)dlinfo.dli_saddr;
     if (SHADOWHOOK_ERRNO_PENDING != r) {
       size_t backup_len = 0;
       if (0 == r) {
-        r = sh_switch_hook(task->target_addr, task->new_addr, task->orig_addr, &backup_len, &dlinfo);
+        r = sh_switch_hook(task->target_addr, task->new_addr, task->orig_addr, &backup_len, &dlinfo, false);
         if (0 != r) task->error = true;
       } else {
-        strlcpy(real_lib_name, task->lib_name, sizeof(real_lib_name));
         task->error = true;
       }
-      sh_recorder_add_hook(r, false, task->target_addr, real_lib_name, task->sym_name, task->new_addr,
+      sh_recorder_add_hook(r, false, task->target_addr, task->lib_name, task->sym_name, task->new_addr,
                            backup_len, (uintptr_t)task, task->caller_addr);
       task->finished = true;
       sh_task_do_callback(task, r);
@@ -209,7 +209,7 @@ static void sh_task_dl_fini_post(struct dl_phdr_info *info, size_t size, void *d
   pthread_rwlock_rdlock(&sh_tasks_lock);
   sh_task_t *task;
   TAILQ_FOREACH(task, &sh_tasks, link) {
-    if (task->finished && task->lib_name != NULL && task->sym_name != NULL && 0 != task->target_addr &&
+    if (task->finished && !task->hook_by_target_addr && 0 != task->target_addr &&
         sh_util_is_in_elf_pt_load(dlinfo.dli_fbase, dlinfo.dlpi_phdr, dlinfo.dlpi_phnum, task->target_addr)) {
       task->target_addr = 0;
       task->error = false;
@@ -255,20 +255,13 @@ int sh_task_init(void) {
 
 int sh_task_hook(sh_task_t *self) {
   int r;
-  bool is_hook_sym_addr = true;
-  char real_lib_name[512] = "unknown";
-  char real_sym_name[1024] = "unknown";
   size_t backup_len = 0;
-
-  // find target-address by library-name and symbol-name
   xdl_info_t dlinfo;
   memset(&dlinfo, 0, sizeof(xdl_info_t));
-  if (0 == self->target_addr) {
-    is_hook_sym_addr = false;
-    strlcpy(real_lib_name, self->lib_name, sizeof(real_lib_name));
-    strlcpy(real_sym_name, self->sym_name, sizeof(real_sym_name));
-    r = sh_linker_get_dlinfo_by_sym_name(self->lib_name, self->sym_name, &dlinfo, real_lib_name,
-                                         sizeof(real_lib_name));
+
+  // find target-address by library-name and symbol-name
+  if (!self->hook_by_target_addr) {
+    r = sh_linker_get_dlinfo_by_sym_name(self->lib_name, self->sym_name, &dlinfo);
     if (SHADOWHOOK_ERRNO_PENDING == r) {
 #if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
       if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__)) {
@@ -281,10 +274,6 @@ int sh_task_hook(sh_task_t *self) {
     }
     if (0 != r) goto end;                             // error
     self->target_addr = (uintptr_t)dlinfo.dli_saddr;  // OK
-  } else {
-    r = sh_linker_get_dlinfo_by_addr((void *)self->target_addr, &dlinfo, real_lib_name, sizeof(real_lib_name),
-                                     real_sym_name, sizeof(real_sym_name), self->ignore_symbol_check);
-    if (0 != r) goto end;  // error
   }
 
   // In Android 4.x with UNIQUE mode, if external users are hooking the linker's dlopen(),
@@ -301,12 +290,12 @@ int sh_task_hook(sh_task_t *self) {
 #endif
 
   // hook by target-address
-  r = sh_switch_hook(self->target_addr, self->new_addr, self->orig_addr, &backup_len, &dlinfo);
+  r = sh_switch_hook(self->target_addr, self->new_addr, self->orig_addr, &backup_len, &dlinfo,
+                     self->ignore_symbol_check);
   self->finished = true;
 
 end:
-  if (0 == r || SHADOWHOOK_ERRNO_PENDING == r)  // "PENDING" is NOT an error
-  {
+  if (0 == r || SHADOWHOOK_ERRNO_PENDING == r /* "PENDING" is NOT an error */) {
     pthread_rwlock_wrlock(&sh_tasks_lock);
     TAILQ_INSERT_TAIL(&sh_tasks, self, link);
     if (!self->finished) __atomic_add_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
@@ -314,9 +303,10 @@ end:
   }
 
   // record
-  sh_recorder_add_hook(r, is_hook_sym_addr, self->target_addr, real_lib_name, real_sym_name, self->new_addr,
-                       backup_len, (uintptr_t)self, self->caller_addr);
-
+  sh_recorder_add_hook(r, self->hook_by_target_addr, self->target_addr,
+                       NULL != self->lib_name ? self->lib_name : "unknown",
+                       NULL != self->sym_name ? self->sym_name : "unknown", self->new_addr, backup_len,
+                       (uintptr_t)self, self->caller_addr);
   return r;
 }
 

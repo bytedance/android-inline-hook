@@ -209,11 +209,11 @@ int sh_linker_register_dlopen_post_callback(sh_linker_dlopen_post_t post) {
   }
 
   // do hook
-  int (*hook)(uintptr_t, uintptr_t, uintptr_t *, size_t *, xdl_info_t *) =
+  int (*hook)(uintptr_t, uintptr_t, uintptr_t *, size_t *, xdl_info_t *, bool) =
       SHADOWHOOK_IS_SHARED_MODE ? sh_switch_hook : sh_switch_hook_invisible;
   size_t backup_len = 0;
   int r = hook((uintptr_t)dlinfo.dli_saddr, (uintptr_t)sh_linker_proxy_dlopen,
-               (uintptr_t *)&sh_linker_orig_dlopen, &backup_len, &dlinfo);
+               (uintptr_t *)&sh_linker_orig_dlopen, &backup_len, &dlinfo, false);
 
   // do record
   sh_recorder_add_hook(r, true, (uintptr_t)dlinfo.dli_saddr, SH_LINKER_BASENAME, dlinfo.dli_sname,
@@ -492,7 +492,7 @@ static int sh_linker_hook_call_ctors_dtors(xdl_info_t *call_constructors_dlinfo,
   int r_hook_dtors = INT_MAX;
   size_t backup_len_ctors = 0;
   size_t backup_len_dtors = 0;
-  int (*hook)(uintptr_t, uintptr_t, uintptr_t *, size_t *, xdl_info_t *) =
+  int (*hook)(uintptr_t, uintptr_t, uintptr_t *, size_t *, xdl_info_t *, bool) =
       SHADOWHOOK_IS_SHARED_MODE ? sh_switch_hook : sh_switch_hook_invisible;
 
 #if !SH_LINKER_HOOK_WITH_DL_MUTEX
@@ -505,9 +505,9 @@ static int sh_linker_hook_call_ctors_dtors(xdl_info_t *call_constructors_dlinfo,
 
   // hook soinfo::call_constructors()
   SH_LOG_INFO("linker: hook soinfo::call_constructors");
-  r_hook_ctors =
-      hook((uintptr_t)call_constructors_dlinfo->dli_saddr, (uintptr_t)sh_linker_proxy_soinfo_call_ctors,
-           (uintptr_t *)&sh_linker_orig_soinfo_call_ctors, &backup_len_ctors, call_constructors_dlinfo);
+  r_hook_ctors = hook(
+      (uintptr_t)call_constructors_dlinfo->dli_saddr, (uintptr_t)sh_linker_proxy_soinfo_call_ctors,
+      (uintptr_t *)&sh_linker_orig_soinfo_call_ctors, &backup_len_ctors, call_constructors_dlinfo, false);
   if (__predict_false(0 != r_hook_ctors)) {
 #if SH_LINKER_HOOK_WITH_DL_MUTEX
     pthread_mutex_unlock(g_dl_mutex);
@@ -519,7 +519,7 @@ static int sh_linker_hook_call_ctors_dtors(xdl_info_t *call_constructors_dlinfo,
   SH_LOG_INFO("linker: hook soinfo::call_destructors");
   r_hook_dtors =
       hook((uintptr_t)call_destructors_dlinfo->dli_saddr, (uintptr_t)sh_linker_proxy_soinfo_call_dtors,
-           (uintptr_t *)&sh_linker_orig_soinfo_call_dtors, &backup_len_dtors, call_destructors_dlinfo);
+           (uintptr_t *)&sh_linker_orig_soinfo_call_dtors, &backup_len_dtors, call_destructors_dlinfo, false);
   if (__predict_false(0 != r_hook_dtors)) {
 #if SH_LINKER_HOOK_WITH_DL_MUTEX
     pthread_mutex_unlock(g_dl_mutex);
@@ -718,8 +718,9 @@ int sh_linker_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_d
   return 0;
 }
 
-int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name, size_t lib_name_sz,
-                                 char *sym_name, size_t sym_name_sz, bool ignore_symbol_check) {
+int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, bool ignore_symbol_check) {
+  memset(dlinfo, 0, sizeof(xdl_info_t));
+
   // dladdr()
   bool crashed = false;
   void *dlcache = NULL;
@@ -777,9 +778,6 @@ int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, char *lib_name,
     r = SHADOWHOOK_ERRNO_HOOK_SYMSZ;
     goto end;
   }
-
-  if (NULL != lib_name) strlcpy(lib_name, dlinfo->dli_fname, lib_name_sz);
-  if (NULL != sym_name) strlcpy(sym_name, dlinfo->dli_sname, sym_name_sz);
   r = 0;
 
 end:
@@ -787,8 +785,9 @@ end:
   return r;
 }
 
-int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo,
-                                     char *real_lib_name, size_t real_lib_name_sz) {
+int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo) {
+  memset(dlinfo, 0, sizeof(xdl_info_t));
+
   // open library
   bool crashed = false;
   void *handle = NULL;
@@ -839,6 +838,5 @@ int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name,
   dlinfo->dli_sname = sym_name;
   dlinfo->dli_saddr = addr;
   dlinfo->dli_ssize = sym_size;
-  if (NULL != real_lib_name) strlcpy(real_lib_name, dlinfo->dli_fname, real_lib_name_sz);
   return 0;
 }
