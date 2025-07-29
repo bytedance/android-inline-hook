@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "xdl.h"
+#include "sh_linker.h"
+#include "shadowhook.h"
 
-int sh_switch_hook(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr, size_t *backup_len,
-                   xdl_info_t *dlinfo, bool ignore_symbol_check);
-int sh_switch_unhook(uintptr_t target_addr, uintptr_t new_addr);
+void shadowhook_interceptor_caller(void *ctx, shadowhook_cpu_context_t *cpu_context, void **next_hop);
 
-int sh_switch_hook_invisible(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                             size_t *backup_len, xdl_info_t *dlinfo, bool ignore_symbol_check);
+void sh_switch_init(void);
 
-void sh_switch_free_after_dlclose(xdl_info_t *dlinfo);
+int sh_switch_hook(uintptr_t target_addr, sh_addr_info_t *addr_info, uintptr_t new_addr, uintptr_t *orig_addr,
+                   size_t flags, size_t *backup_len);
+int sh_switch_unhook(uintptr_t target_addr, uintptr_t new_addr, size_t flags);
+
+int sh_switch_hook_invisible(uintptr_t target_addr, sh_addr_info_t *addr_info, uintptr_t new_addr,
+                             uintptr_t *orig_addr, size_t *backup_len);
+
+int sh_switch_intercept(uintptr_t target_addr, sh_addr_info_t *addr_info, shadowhook_interceptor_t pre,
+                        void *data, size_t flags, size_t *backup_len);
+int sh_switch_unintercept(uintptr_t target_addr, shadowhook_interceptor_t pre, void *data);
+
+void sh_switch_free_after_dlclose(struct dl_phdr_info *info);

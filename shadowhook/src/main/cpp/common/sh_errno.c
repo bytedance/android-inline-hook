@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -28,24 +28,25 @@
 
 #include "shadowhook.h"
 
-static int sh_errno_global = SHADOWHOOK_ERRNO_UNINIT;
+static int sh_errno_global = SHADOWHOOK_ERRNO_INIT_ERRNO;
 static pthread_key_t sh_errno_tls_key;
 
-int sh_errno_init(void) {
-  if (__predict_false(0 != pthread_key_create(&sh_errno_tls_key, NULL))) {
-    sh_errno_global = SHADOWHOOK_ERRNO_INIT_ERRNO;
-    return -1;
+__attribute__((constructor)) static void sh_errno_ctor(void) {
+  if (__predict_true(0 == pthread_key_create(&sh_errno_tls_key, NULL))) {
+    sh_errno_global = SHADOWHOOK_ERRNO_OK;
   }
-  sh_errno_global = SHADOWHOOK_ERRNO_OK;
-  return 0;
+}
+
+bool sh_errno_is_invalid(void) {
+  return __predict_false(sh_errno_global == SHADOWHOOK_ERRNO_INIT_ERRNO);
 }
 
 void sh_errno_reset(void) {
-  sh_errno_set(0);
+  sh_errno_set(SHADOWHOOK_ERRNO_OK);
 }
 
 void sh_errno_set(int error_number) {
-  if (sh_errno_global == SHADOWHOOK_ERRNO_UNINIT || sh_errno_global == SHADOWHOOK_ERRNO_INIT_ERRNO) return;
+  if (__predict_false(sh_errno_global == SHADOWHOOK_ERRNO_INIT_ERRNO)) return;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
@@ -54,8 +55,7 @@ void sh_errno_set(int error_number) {
 }
 
 int sh_errno_get(void) {
-  if (sh_errno_global == SHADOWHOOK_ERRNO_UNINIT || sh_errno_global == SHADOWHOOK_ERRNO_INIT_ERRNO)
-    return sh_errno_global;
+  if (__predict_false(sh_errno_global == SHADOWHOOK_ERRNO_INIT_ERRNO)) return sh_errno_global;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvoid-pointer-to-int-cast"
@@ -72,40 +72,48 @@ const char *sh_errno_to_errmsg(int error_number) {
                               /* 5  */ "MProtect failed",
                               /* 6  */ "Write to arbitrary address crashed",
                               /* 7  */ "Init errno mod failed",
-                              /* 8  */ "Init bytesig SIGSEGV mod failed",
-                              /* 9  */ "Init bytesig SIGBUS mod failed",
-                              /* 10 */ "Init enter mod failed",
+                              /* 8  */ "Init bytesig mod SIGSEGV failed",
+                              /* 9  */ "Init bytesig mod SIGBUS failed",
+                              /* 10 */ "Duplicate intercept",
                               /* 11 */ "Init safe mod failed",
                               /* 12 */ "Init linker mod failed",
                               /* 13 */ "Init hub mod failed",
                               /* 14 */ "Create hub failed",
                               /* 15 */ "Monitor dlopen failed",
-                              /* 16 */ "Create monitor thread failed",
+                              /* 16 */ "Duplicate shared hook",
                               /* 17 */ "Open ELF crashed",
                               /* 18 */ "Find symbol in ELF failed",
                               /* 19 */ "Find symbol in ELF crashed",
-                              /* 20 */ "Duplicate hook",
+                              /* 20 */ "Duplicate unique ook",
                               /* 21 */ "Dladdr crashed",
                               /* 22 */ "Find dlinfo failed",
                               /* 23 */ "Symbol size too small",
                               /* 24 */ "Alloc enter failed",
                               /* 25 */ "Instruction rewrite crashed",
                               /* 26 */ "Instruction rewrite failed",
-                              /* 27 */ "Switch not found",
+                              /* 27 */ "Unop not found",
                               /* 28 */ "Verify original instruction crashed",
                               /* 29 */ "Verify original instruction failed",
-                              /* 30 */ "Exit instruction mismatch",
-                              /* 31 */ "Free exit crashed",
-                              /* 32 */ "Unhook on an error status task",
-                              /* 33 */ "Unhook on an unfinished task",
+                              /* 30 */ "Verify exit instruction failed",
+                              /* 31 */ "Verify exit instruction crashed",
+                              /* 32 */ "Unop on an error status task",
+                              /* 33 */ "Unop on an unfinished task",
                               /* 34 */ "ELF with an unsupported architecture",
                               /* 35 */ "Linker with an unsupported architecture",
-                              /* 36 */ "Duplicate register callback",
-                              /* 37 */ "Unregister not-existed callback",
+                              /* 36 */ "Duplicate init fini callback",
+                              /* 37 */ "Unregister not-existed init fini callback",
                               /* 38 */ "Register callback not supported",
-                              /* 39 */ "TaskManager init Failed"};
+                              /* 39 */ "Init task mod failed",
+                              /* 40 */ "Alloc island for exit failed",
+                              /* 41 */ "Alloc island for enter failed",
+                              /* 42 */ "Alloc island for rewrite failed",
+                              /* 43 */ "Mode conflict",
+                              /* 44 */ "Duplicate multi hook",
+                              /* 45 */ "Disabled"};
 
-  if (error_number < 0 || error_number >= (int)(sizeof(msg) / sizeof(msg[0]))) return "Unknown error number";
+  if (__predict_false(error_number < 0 || error_number >= (int)(sizeof(msg) / sizeof(msg[0])))) {
+    return "Unknown error number";
+  }
 
   return msg[error_number];
 }

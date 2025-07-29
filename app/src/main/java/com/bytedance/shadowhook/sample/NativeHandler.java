@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,16 @@ public class NativeHandler {
     public static native int nativeHookSymAddr(int apiLevel);
     public static native int nativeHookSymName(int apiLevel);
     public static native int nativeUnhook();
+    public static native int nativeInterceptSymAddr();
+    public static native int nativeInterceptSymAddrReadFpsimd();
+    public static native int nativeInterceptSymAddrReadWriteFpsimd();
+    public static native int nativeInterceptSymName();
+    public static native int nativeInterceptSymNameReadFpsimd();
+    public static native int nativeInterceptSymNameReadWriteFpsimd();
+    public static native int nativeUnintercept();
     public static native void nativeDlopen();
     public static native void nativeDlclose();
     public static native int nativeRun();
+    public static native int nativeBenchmark();
     public static native void nativeDumpRecords(String pathname);
 }

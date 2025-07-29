@@ -19,28 +19,18 @@
 // SOFTWARE.
 //
 
-// Created by Pengying Xu (xupengying@bytedance.com) on 2021-04-11.
+// Created by Kelun Cai (caikelun@bytedance.com) on 2024-12-30.
 
 #pragma once
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "sh_txx.h"
+#include "sh_linker.h"
 
-typedef struct {
-  uint16_t insts[8];
-  size_t insts_len;       // 2 - 16 (bytes)
-  size_t insts_cnt;       // 1 - 4
-  size_t insts_else_cnt;  // 0 - 3
-  uintptr_t pcs[4];
-  uint8_t firstcond;
-  uint8_t padding[3];
-} sh_t16_it_t;
+// arm:   size = 8
+// arm64: size = 8 or 16 or 20
+uintptr_t sh_elf_alloc(size_t size, uintptr_t range_low, uintptr_t range_high, uintptr_t pc,
+                       sh_addr_info_t *addr_info);
+void sh_elf_free(uintptr_t addr, size_t size);
 
-bool sh_t16_parse_it(sh_t16_it_t *it, uint16_t inst, uintptr_t pc);
-void sh_t16_rewrite_it_else(uint16_t *buf, uint16_t imm9, sh_t16_it_t *it);
-void sh_t16_rewrite_it_then(uint16_t *buf, uint16_t imm12);
-
-size_t sh_t16_get_rewrite_inst_len(uint16_t inst);
-size_t sh_t16_rewrite(uint16_t *buf, uint16_t inst, uintptr_t pc, sh_txx_rewrite_info_t *rinfo);
+void sh_elf_cleanup_after_dlclose(uintptr_t load_bias);

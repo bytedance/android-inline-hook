@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@
 #pragma once
 #include <stdint.h>
 
-int sh_enter_init(void);
+void sh_enter_init(void);
 
 uintptr_t sh_enter_alloc(void);
 void sh_enter_free(uintptr_t enter);

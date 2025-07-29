@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,11 +23,14 @@
 
 #include "sh_util.h"
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
 #include <time.h>
@@ -36,17 +39,148 @@
 #include "sh_log.h"
 #include "sh_sig.h"
 #include "shadowhook.h"
-#include "xdl.h"
 
-static size_t sh_util_page_size = 0;
-static time_t sh_util_system_uptime = 0;
+extern __attribute((weak)) unsigned long int getauxval(unsigned long int);
 
-__attribute__((constructor)) static void sh_util_ctor(void) {
-  sh_util_page_size = (size_t)getpagesize();
+static time_t sh_util_system_uptime;
+static size_t sh_util_page_size;
+static int sh_util_api_level;
 
+#if defined(__arm__) && __ANDROID_API__ < __ANDROID_API_K__
+static int sh_util_trim_cmp(char *haystack, char *needle) {
+  char *start = haystack;
+  char *end = start + strlen(start);
+  if (__predict_false(start == end)) return -1;
+
+  while (start < end && isspace((int)(*start))) start++;
+  if (__predict_false(start == end)) return -1;
+
+  while (start < end && isspace((int)(*(end - 1)))) end--;
+  if (__predict_false(start == end)) return -1;
+
+  size_t len = (size_t)(end - start);
+  if (len != strlen(needle)) return -1;
+
+  return 0 == memcmp(start, needle, len) ? 0 : -1;
+}
+#endif
+
+bool sh_util_starts_with(const char *str, const char *start) {
+  while (*str && *str == *start) {
+    str++;
+    start++;
+  }
+
+  return '\0' == *start;
+}
+
+bool sh_util_ends_with(const char *str, const char *ending) {
+  size_t str_len = strlen(str);
+  size_t ending_len = strlen(ending);
+
+  if (ending_len > str_len) return false;
+
+  return 0 == strcmp(str + (str_len - ending_len), ending);
+}
+
+static int sh_util_get_api_level_from_build_prop(void) {
+  char buf[128];
+  int api_level = -1;
+
+  FILE *fp = fopen("/system/build.prop", "r");
+  if (__predict_false(NULL == fp)) goto end;
+
+  while (fgets(buf, sizeof(buf), fp)) {
+    if (__predict_false(sh_util_starts_with(buf, "ro.build.version.sdk="))) {
+      api_level = atoi(buf + 21);
+      break;
+    }
+  }
+  fclose(fp);
+
+end:
+  return (api_level > 0) ? api_level : -1;
+}
+
+static void sh_util_init_api_level(void) {
+  sh_util_api_level = android_get_device_api_level();
+  if (__predict_false(sh_util_api_level < 0)) sh_util_api_level = sh_util_get_api_level_from_build_prop();
+  if (__predict_false(sh_util_api_level < __ANDROID_API_J__)) sh_util_api_level = __ANDROID_API_J__;
+}
+
+int sh_util_get_api_level(void) {
+  return sh_util_api_level;
+}
+
+#if defined(__arm__)
+static size_t sh_util_cpu_features;
+
+static void sh_util_init_arm_cpu_features(void) {
+  sh_util_cpu_features = 0;
+
+  // armeabi-v7a supports at least VFPv3, so the VFP features of lower versions
+  // do not need to be detected.
+  if (NULL != getauxval) {
+    size_t hwcap = (size_t)getauxval(AT_HWCAP);
+    if ((hwcap & HWCAP_VFPD32) || (hwcap & HWCAP_VFPv4) || (hwcap & HWCAP_NEON))
+      sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D32;
+    else if (hwcap & HWCAP_VFPv3D16)
+      sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D16;
+    else if (hwcap & HWCAP_VFPv3)
+      sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D32;
+  }
+#if __ANDROID_API__ < __ANDROID_API_K__
+  else {
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+    if (NULL == fp) return;
+    char line[1024];
+    while (fgets(line, sizeof(line), fp)) {
+      char *tmp;
+      char *str = strtok_r(line, ": ", &tmp);
+      if (NULL != str && 0 == sh_util_trim_cmp(str, "Features")) {
+        while (NULL != (str = strtok_r(NULL, " ", &tmp))) {
+          if (0 == sh_util_trim_cmp(str, "vfpd32") || 0 == sh_util_trim_cmp(str, "vfpv4") ||
+              0 == sh_util_trim_cmp(str, "neon")) {
+            sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D32;
+            break;
+          }
+          if (0 == sh_util_trim_cmp(str, "vfpv3d16")) {
+            sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D16;
+            break;
+          } else if (0 == sh_util_trim_cmp(str, "vfpv3")) {
+            sh_util_cpu_features = SH_UTIL_ARM_CPU_FEATURE_VFPV3D32;
+            break;
+          }
+        }
+        break;
+      }
+    }
+    fclose(fp);
+  }
+#endif
+}
+
+size_t sh_util_get_arm_cpu_features(void) {
+  return sh_util_cpu_features;
+}
+#endif
+
+void sh_util_init(void) {
+  // init system uptime
   struct sysinfo info;
   sysinfo(&info);
   sh_util_system_uptime = info.uptime;
+
+  // init pagesize
+  sh_util_page_size = (size_t)getpagesize();
+
+  // init api level
+  sh_util_init_api_level();
+
+  // init CPU feature
+#if defined(__arm__)
+  sh_util_init_arm_cpu_features();
+#endif
 }
 
 size_t sh_util_get_page_size(void) {
@@ -114,58 +248,6 @@ int sh_util_write_inst(uintptr_t target_addr, void *inst, size_t inst_len) {
   SH_SIG_EXIT
 
   return 0;  // OK
-}
-
-bool sh_util_starts_with(const char *str, const char *start) {
-  while (*str && *str == *start) {
-    str++;
-    start++;
-  }
-
-  return '\0' == *start;
-}
-
-bool sh_util_ends_with(const char *str, const char *ending) {
-  size_t str_len = strlen(str);
-  size_t ending_len = strlen(ending);
-
-  if (ending_len > str_len) return false;
-
-  return 0 == strcmp(str + (str_len - ending_len), ending);
-}
-
-static int sh_util_get_api_level_from_build_prop(void) {
-  char buf[128];
-  int api_level = -1;
-
-  FILE *fp = fopen("/system/build.prop", "r");
-  if (__predict_false(NULL == fp)) goto end;
-
-  while (fgets(buf, sizeof(buf), fp)) {
-    if (__predict_false(sh_util_starts_with(buf, "ro.build.version.sdk="))) {
-      api_level = atoi(buf + 21);
-      break;
-    }
-  }
-  fclose(fp);
-
-end:
-  return (api_level > 0) ? api_level : -1;
-}
-
-int sh_util_get_api_level(void) {
-  static int xdl_util_api_level = -1;
-
-  if (__predict_false(xdl_util_api_level < 0)) {
-    int api_level = android_get_device_api_level();
-    if (__predict_false(api_level < 0))
-      api_level = sh_util_get_api_level_from_build_prop();  // compatible with unusual models
-    if (__predict_false(api_level < __ANDROID_API_J__)) api_level = __ANDROID_API_J__;
-
-    __atomic_store_n(&xdl_util_api_level, api_level, __ATOMIC_SEQ_CST);
-  }
-
-  return xdl_util_api_level;
 }
 
 int sh_util_write(int fd, const char *buf, size_t buf_len) {
@@ -571,21 +653,6 @@ size_t sh_util_snprintf(char *buffer, size_t buffer_size, const char *format, ..
   return buffer_len;
 }
 
-bool sh_util_is_in_elf_pt_load(void *dli_fbase, const ElfW(Phdr) *dlpi_phdr, size_t dlpi_phnum,
-                               uintptr_t addr) {
-  if (addr < (uintptr_t)dli_fbase) return false;
-
-  uintptr_t vaddr = addr - (uintptr_t)dli_fbase;
-  for (size_t i = 0; i < dlpi_phnum; i++) {
-    const ElfW(Phdr) *phdr = &dlpi_phdr[i];
-    if (PT_LOAD != phdr->p_type) continue;
-
-    if (phdr->p_vaddr <= vaddr && vaddr < phdr->p_vaddr + phdr->p_memsz) return true;
-  }
-
-  return false;
-}
-
 time_t sh_util_get_process_uptime(void) {
   struct sysinfo info;
   sysinfo(&info);
@@ -608,4 +675,16 @@ time_t sh_util_get_stable_timestamp(void) {
   //
   // Currently we use the process uptime plus a constant offset.
   return sh_util_get_process_uptime() + 24 * 60 * 60;
+}
+
+bool sh_util_match_pathname(const char *a, const char *b) {
+  if ('/' == a[0] && '/' != b[0]) {
+    if (!sh_util_ends_with(a, b)) return false;
+  } else if ('/' != a[0] && '/' == b[0]) {
+    if (!sh_util_ends_with(b, a)) return false;
+  } else {
+    if (0 != strcmp(a, b)) return false;
+  }
+
+  return true;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,17 @@ static jstring sh_jni_get_version(JNIEnv *env, jobject thiz) {
 static jint sh_jni_init(JNIEnv *env, jobject thiz, jint mode, jboolean debuggable) {
   (void)env, (void)thiz;
 
-  return shadowhook_init(0 == mode ? SHADOWHOOK_MODE_SHARED : SHADOWHOOK_MODE_UNIQUE, (bool)debuggable);
+  shadowhook_mode_t enum_mode;
+  if (0 == mode)
+    enum_mode = SHADOWHOOK_MODE_SHARED;
+  else if (1 == mode)
+    enum_mode = SHADOWHOOK_MODE_UNIQUE;
+  else if (2 == mode)
+    enum_mode = SHADOWHOOK_MODE_MULTI;
+  else
+    return SHADOWHOOK_ERRNO_INVALID_ARG;
+
+  return shadowhook_init(enum_mode, (bool)debuggable);
 }
 
 static jint sh_jni_get_init_errno(JNIEnv *env, jobject thiz) {
@@ -52,7 +62,14 @@ static jint sh_jni_get_init_errno(JNIEnv *env, jobject thiz) {
 static jint sh_jni_get_mode(JNIEnv *env, jobject thiz) {
   (void)env, (void)thiz;
 
-  return SHADOWHOOK_MODE_SHARED == shadowhook_get_mode() ? 0 : 1;
+  if (SHADOWHOOK_IS_SHARED_MODE)
+    return 0;
+  else if (SHADOWHOOK_IS_UNIQUE_MODE)
+    return 1;
+  else if (SHADOWHOOK_IS_MULTI_MODE)
+    return 2;
+  else
+    return -1;
 }
 
 static jboolean sh_jni_get_debuggable(JNIEnv *env, jobject thiz) {
@@ -77,6 +94,17 @@ static void sh_jni_set_recordable(JNIEnv *env, jobject thiz, jboolean recordable
   (void)env, (void)thiz;
 
   shadowhook_set_recordable((bool)recordable);
+}
+
+static jboolean sh_jni_get_disable(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+
+  return shadowhook_get_disable();
+}
+static void sh_jni_set_disable(JNIEnv *env, jobject thiz, jboolean disable) {
+  (void)env, (void)thiz;
+
+  shadowhook_set_disable((bool)disable);
 }
 
 static jstring sh_jni_to_errmsg(JNIEnv *env, jobject thiz, jint error_number) {
@@ -130,6 +158,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                          {"nativeSetDebuggable", "(Z)V", (void *)sh_jni_set_debuggable},
                          {"nativeGetRecordable", "()Z", (void *)sh_jni_get_recordable},
                          {"nativeSetRecordable", "(Z)V", (void *)sh_jni_set_recordable},
+                         {"nativeGetDisable", "()Z", (void *)sh_jni_get_disable},
+                         {"nativeSetDisable", "(Z)V", (void *)sh_jni_set_disable},
                          {"nativeToErrmsg", "(I)Ljava/lang/String;", (void *)sh_jni_to_errmsg},
                          {"nativeGetRecords", "(I)Ljava/lang/String;", (void *)sh_jni_get_records},
                          {"nativeGetArch", "()Ljava/lang/String;", (void *)sh_jni_get_arch}};

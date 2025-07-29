@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,10 +34,41 @@ ENTRY_HIDDEN_THUMB(test_t16_helper_hidden)
 END(test_t16_helper_hidden)
 
 
+// benchmark for unique mode
+ENTRY_GLOBAL_ARM(test_t16_for_unique)
+    add      r0, r0, r1
+    nop
+    nop
+    nop
+    nop
+    bx       lr
+END(test_t16_for_unique)
+
+// benchmark for multi mode
+ENTRY_GLOBAL_ARM(test_t16_for_multi)
+    add      r0, r0, r1
+    nop
+    nop
+    nop
+    nop
+    bx       lr
+END(test_t16_for_multi)
+
+// benchmark for shared mode
+ENTRY_GLOBAL_ARM(test_t16_for_shared)
+    add      r0, r0, r1
+    nop
+    nop
+    nop
+    nop
+    bx       lr
+END(test_t16_for_shared)
+
+
 // B T1
 ENTRY_GLOBAL_THUMB(test_t16_b_t1)
-    cmp      r0, r0
-    beq      test_t16_helper_hidden
+    b        test_t16_helper_hidden
+    nop
     nop
     nop
     nop
@@ -46,9 +77,9 @@ END(test_t16_b_t1)
 
 // B T1 fixaddr
 ENTRY_GLOBAL_THUMB(test_t16_b_t1_fixaddr)
-    cmp      r0, r0
-    beq      .t16_b_t1_fixaddr_short_jump
-.t16_b_t1_fixaddr_short_jump:
+    b        .L_t16_b_t1_fixaddr_next
+    bx       lr
+.L_t16_b_t1_fixaddr_next:
     b        test_t16_helper_hidden
     nop
     nop
@@ -65,8 +96,9 @@ END(test_t16_b_t2)
 
 // B T2 fixaddr
 ENTRY_GLOBAL_THUMB(test_t16_b_t2_fixaddr)
-    b        .t16_b_t2_fixaddr_short_jump
-.t16_b_t2_fixaddr_short_jump:
+    b        .L_t16_b_t2_fixaddr_next
+    bx       lr
+.L_t16_b_t2_fixaddr_next:
     b        test_t16_helper_hidden
     nop
     nop
@@ -121,27 +153,27 @@ ENTRY_GLOBAL_THUMB(test_t16_adr_t1)
     nop
     nop
     nop
-    adr      lr, .t16_adr_t1_ret
+    adr      lr, .L_t16_adr_t1_ret
     add      lr, lr, #1
     mov      pc, r4
-.t16_adr_t1_ret:
+.L_t16_adr_t1_ret:
     pop      {r4, pc}
 END(test_t16_adr_t1)
 
 // LDR LIT T1
 ENTRY_GLOBAL_THUMB(test_t16_ldr_lit_t1)
     push     {r3, r4}
-    ldr.w    r3, .t16_ldr_lit_t1_long1
+    ldr.w    r3, .L_t16_ldr_lit_t1_long1
     nop
     nop
-    ldr.w    r4, .t16_ldr_lit_t1_long2
+    ldr.w    r4, .L_t16_ldr_lit_t1_long2
     cmp      r3, r4
     pop      {r3, r4}
     beq      test_t16_helper_global
     bx       lr
-.t16_ldr_lit_t1_long1:
+.L_t16_ldr_lit_t1_long1:
     .long    12345
-.t16_ldr_lit_t1_long2:
+.L_t16_ldr_lit_t1_long2:
     .long    12345
 END(test_t16_ldr_lit_t1)
 
@@ -149,19 +181,19 @@ END(test_t16_ldr_lit_t1)
 ENTRY_GLOBAL_THUMB(test_t16_cbz_t1)
     push     {r0}
     movs     r0, #0
-    cbz      r0, .t16_cbz_t1_next
+    cbz      r0, .L_t16_cbz_t1_next
     pop      {r0}
     bx       lr
-.t16_cbz_t1_next:
+.L_t16_cbz_t1_next:
     pop      {r0}
     b        test_t16_helper_global
 END(test_t16_cbz_t1)
 
 // CBZ T1 fixaddr
 ENTRY_GLOBAL_THUMB(test_t16_cbz_t1_fixaddr)
-    cbz      r0, .t16_cbz_t1_fixaddr_next // r0 == 4
+    cbz      r0, .L_t16_cbz_t1_fixaddr_next // r0 == 4
     b        test_t16_helper_global
-.t16_cbz_t1_fixaddr_next:
+.L_t16_cbz_t1_fixaddr_next:
     bx       lr
     nop
     nop
@@ -171,19 +203,19 @@ END(test_t16_cbz_t1_fixaddr)
 ENTRY_GLOBAL_THUMB(test_t16_cbnz_t1)
     push     {r0}
     movs     r0, #1
-    cbnz     r0, .t16_cbnz_t1_next
+    cbnz     r0, .L_t16_cbnz_t1_next
     pop      {r0}
     bx       lr
-.t16_cbnz_t1_next:
+.L_t16_cbnz_t1_next:
     pop      {r0}
     b        test_t16_helper_global
 END(test_t16_cbnz_t1)
 
 // CBNZ T1 fixaddr
 ENTRY_GLOBAL_THUMB(test_t16_cbnz_t1_fixaddr)
-    cbnz     r0, .t16_cbnz_t1_fixaddr_next // r0 == 4
+    cbnz     r0, .L_t16_cbnz_t1_fixaddr_next // r0 == 4
     bx       lr
-.t16_cbnz_t1_fixaddr_next:
+.L_t16_cbnz_t1_fixaddr_next:
     b        test_t16_helper_global
     nop
     nop
@@ -224,3 +256,22 @@ ENTRY_HIDDEN_THUMB(test_t16_helper_hidden_tail)
     add      r0, r0, r1
     bx       lr
 END(test_t16_helper_hidden_tail)
+
+
+ENTRY_GLOBAL_THUMB(test_t16_instr)
+    nop.w
+    nop.w
+    add      r0, r0, r1
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    bx       lr
+END(test_t16_instr)

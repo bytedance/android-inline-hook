@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,31 +38,63 @@
 static void *hookee2_handle = NULL;
 
 static int unittest_jni_hook_sym_addr(JNIEnv *env, jobject thiz, jint api_level) {
-  (void)env;
-  (void)thiz;
-
+  (void)env, (void)thiz;
   return unittest_hook_sym_addr(api_level);
 }
 
 static int unittest_jni_hook_sym_name(JNIEnv *env, jobject thiz, jint api_level) {
-  (void)env;
-  (void)thiz;
-
+  (void)env, (void)thiz;
   return unittest_hook_sym_name(api_level);
 }
 
 static int unittest_jni_unhook(JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-
+  (void)env, (void)thiz;
   return unittest_unhook();
 }
 
-static int unittest_jni_run(JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
+static int unittest_jni_intercept_sym_addr(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_addr();
+}
 
+static int unittest_jni_intercept_sym_addr_read_fpsimd(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_addr_read_fpsimd();
+}
+
+static int unittest_jni_intercept_sym_addr_read_write_fpsimd(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_addr_read_write_fpsimd();
+}
+
+static int unittest_jni_intercept_sym_name(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_name();
+}
+
+static int unittest_jni_intercept_sym_name_read_fpsimd(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_name_read_fpsimd();
+}
+
+static int unittest_jni_intercept_sym_name_read_write_fpsimd(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_intercept_sym_name_read_write_fpsimd();
+}
+
+static int unittest_jni_unintercept(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_unintercept();
+}
+
+static int unittest_jni_run(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
   return unittest_run(NULL != hookee2_handle);
+}
+
+static int unittest_jni_benchmark(JNIEnv *env, jobject thiz) {
+  (void)env, (void)thiz;
+  return unittest_benchmark();
 }
 
 static void unittest_jni_dlopen(JNIEnv *env, jobject thiz) {
@@ -112,13 +144,24 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   jclass cls;
   if (NULL == (cls = (*env)->FindClass(env, HACKER_JNI_CLASS_NAME))) return JNI_ERR;
 
-  JNINativeMethod m[] = {{"nativeHookSymAddr", "(I)I", (void *)unittest_jni_hook_sym_addr},
-                         {"nativeHookSymName", "(I)I", (void *)unittest_jni_hook_sym_name},
-                         {"nativeUnhook", "()I", (void *)unittest_jni_unhook},
-                         {"nativeDlopen", "()V", (void *)unittest_jni_dlopen},
-                         {"nativeDlclose", "()V", (void *)unittest_jni_dlclose},
-                         {"nativeRun", "()I", (void *)unittest_jni_run},
-                         {"nativeDumpRecords", "(Ljava/lang/String;)V", (void *)unittest_jni_dump_records}};
+  JNINativeMethod m[] = {
+      {"nativeHookSymAddr", "(I)I", (void *)unittest_jni_hook_sym_addr},
+      {"nativeHookSymName", "(I)I", (void *)unittest_jni_hook_sym_name},
+      {"nativeUnhook", "()I", (void *)unittest_jni_unhook},
+      {"nativeInterceptSymAddr", "()I", (void *)unittest_jni_intercept_sym_addr},
+      {"nativeInterceptSymAddrReadFpsimd", "()I", (void *)unittest_jni_intercept_sym_addr_read_fpsimd},
+      {"nativeInterceptSymAddrReadWriteFpsimd", "()I",
+       (void *)unittest_jni_intercept_sym_addr_read_write_fpsimd},
+      {"nativeInterceptSymName", "()I", (void *)unittest_jni_intercept_sym_name},
+      {"nativeInterceptSymNameReadFpsimd", "()I", (void *)unittest_jni_intercept_sym_name_read_fpsimd},
+      {"nativeInterceptSymNameReadWriteFpsimd", "()I",
+       (void *)unittest_jni_intercept_sym_name_read_write_fpsimd},
+      {"nativeUnintercept", "()I", (void *)unittest_jni_unintercept},
+      {"nativeDlopen", "()V", (void *)unittest_jni_dlopen},
+      {"nativeDlclose", "()V", (void *)unittest_jni_dlclose},
+      {"nativeRun", "()I", (void *)unittest_jni_run},
+      {"nativeBenchmark", "()I", (void *)unittest_jni_benchmark},
+      {"nativeDumpRecords", "(Ljava/lang/String;)V", (void *)unittest_jni_dump_records}};
   if (0 != (*env)->RegisterNatives(env, cls, m, sizeof(m) / sizeof(m[0]))) return JNI_ERR;
 
   return HACKER_JNI_VERSION;

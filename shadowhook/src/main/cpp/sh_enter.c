@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,17 +25,22 @@
 
 #include <stdint.h>
 
+#include "sh_config.h"
 #include "sh_trampo.h"
 
-#define SH_ENTER_PAGE_NAME "shadowhook-enter"
-#define SH_ENTER_SZ        256
-#define SH_ENTER_DELAY_SEC 10
+#define SH_ENTER_ANON_PAGE_NAME "shadowhook-enter"
+#define SH_ENTER_DELAY_SEC      10
+
+#ifdef SH_CONFIG_TRY_HOOK_WITHOUT_ISLAND
+#define SH_ENTER_SZ 256
+#else
+#define SH_ENTER_SZ 64
+#endif
 
 static sh_trampo_mgr_t sh_enter_trampo_mgr;
 
-int sh_enter_init(void) {
-  sh_trampo_init_mgr(&sh_enter_trampo_mgr, SH_ENTER_PAGE_NAME, SH_ENTER_SZ, SH_ENTER_DELAY_SEC);
-  return 0;
+void sh_enter_init(void) {
+  sh_trampo_init_mgr(&sh_enter_trampo_mgr, SH_ENTER_ANON_PAGE_NAME, SH_ENTER_SZ, SH_ENTER_DELAY_SEC);
 }
 
 uintptr_t sh_enter_alloc(void) {

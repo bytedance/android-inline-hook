@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,12 +25,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "xdl.h"
+#include "sh_linker.h"
 
-void sh_exit_init(void);
+typedef struct {
+  uintptr_t addr;
+  size_t size;
+  size_t type;
+} sh_island_t;
 
-int sh_exit_alloc(uintptr_t *exit_addr, uint16_t *exit_type, uintptr_t pc, xdl_info_t *dlinfo, uint8_t *exit,
-                  size_t range_low, size_t range_high);
-int sh_exit_free(uintptr_t exit_addr, uint16_t exit_type, uint8_t *exit);
-void sh_exit_free_after_dlclose(uintptr_t exit_addr, uint16_t exit_type);
-void sh_exit_free_after_dlclose_by_dlinfo(xdl_info_t *dlinfo);
+void sh_island_init(void);
+
+// range: [range_low, range_high]
+void sh_island_alloc(sh_island_t *self, size_t size, uintptr_t range_low, uintptr_t range_high, uintptr_t pc,
+                     sh_addr_info_t *addr_info);
+void sh_island_free(sh_island_t *self);
+
+void sh_island_free_after_dlclose(sh_island_t *self);
+void sh_island_cleanup_after_dlclose(uintptr_t load_bias);

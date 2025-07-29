@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,4 +25,6 @@
 
 int systest_hook(void);
 int systest_unhook(void);
+int systest_intercept(void);
+int systest_unintercept(void);
 int systest_run(void);

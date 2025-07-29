@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -144,8 +144,8 @@ static size_t sh_t32_rewrite_b(uint16_t *buf, uint16_t high_inst, uint16_t low_i
         (s << 24u) | (i1 << 23u) | (i2 << 22u) | ((high_inst & 0x3FFu) << 12u) | ((low_inst & 0x7FFu) << 1u);
     uint32_t imm32 = SH_UTIL_SIGN_EXTEND_32(x, 25u);
     addr = SH_UTIL_SET_BIT0(pc + imm32);  // thumb -> thumb
-  } else                                  // type == BLX_IMM_T2
-  {
+  } else {
+    // type == BLX_IMM_T2
     uint32_t x =
         (s << 24u) | (i1 << 23u) | (i2 << 22u) | ((high_inst & 0x3FFu) << 12u) | ((low_inst & 0x7FEu) << 1u);
     uint32_t imm32 = SH_UTIL_SIGN_EXTEND_32(x, 25u);
@@ -229,33 +229,24 @@ static size_t sh_t32_rewrite_ldr(uint16_t *buf, uint16_t high_inst, uint16_t low
     buf[3] = 0xBF00;                      // NOP
     buf[4] = addr & 0xFFFFu;
     buf[5] = addr >> 16u;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wswitch"
-    switch (type) {
-      case LDR_LIT_T2:
-        buf[6] = (uint16_t)(0xF8D0 + rt);  // LDR.W Rt, [Rt]
-        buf[7] = (uint16_t)(rt << 12u);    // ...
-        break;
-      case LDRB_LIT_T1:
-        buf[6] = (uint16_t)(0xF890 + rt);  // LDRB.W Rt, [Rt]
-        buf[7] = (uint16_t)(rt << 12u);    // ...
-        break;
-      case LDRD_LIT_T1:
-        buf[6] = (uint16_t)(0xE9D0 + rt);                        // LDRD Rt, Rt2, [Rt]
-        buf[7] = (uint16_t)(rt << 12u) + (uint16_t)(rt2 << 8u);  // ...
-        break;
-      case LDRH_LIT_T1:
-        buf[6] = (uint16_t)(0xF8B0 + rt);  // LDRH.W Rt, [Rt]
-        buf[7] = (uint16_t)(rt << 12u);    // ...
-        break;
-      case LDRSB_LIT_T1:
-        buf[6] = (uint16_t)(0xF990 + rt);  // LDRSB.W Rt, [Rt]
-        buf[7] = (uint16_t)(rt << 12u);    // ...
-        break;
-      case LDRSH_LIT_T1:
-        buf[6] = (uint16_t)(0xF9B0 + rt);  // LDRSH.W Rt, [Rt]
-        buf[7] = (uint16_t)(rt << 12u);    // ...
-        break;
+    if (LDR_LIT_T2 == type) {
+      buf[6] = (uint16_t)(0xF8D0 + rt);  // LDR.W Rt, [Rt]
+      buf[7] = (uint16_t)(rt << 12u);    // ...
+    } else if (LDRB_LIT_T1 == type) {
+      buf[6] = (uint16_t)(0xF890 + rt);  // LDRB.W Rt, [Rt]
+      buf[7] = (uint16_t)(rt << 12u);    // ...
+    } else if (LDRD_LIT_T1 == type) {
+      buf[6] = (uint16_t)(0xE9D0 + rt);                        // LDRD Rt, Rt2, [Rt]
+      buf[7] = (uint16_t)(rt << 12u) + (uint16_t)(rt2 << 8u);  // ...
+    } else if (LDRH_LIT_T1 == type) {
+      buf[6] = (uint16_t)(0xF8B0 + rt);  // LDRH.W Rt, [Rt]
+      buf[7] = (uint16_t)(rt << 12u);    // ...
+    } else if (LDRSB_LIT_T1 == type) {
+      buf[6] = (uint16_t)(0xF990 + rt);  // LDRSB.W Rt, [Rt]
+      buf[7] = (uint16_t)(rt << 12u);    // ...
+    } else if (LDRSH_LIT_T1 == type) {
+      buf[6] = (uint16_t)(0xF9B0 + rt);  // LDRSH.W Rt, [Rt]
+      buf[7] = (uint16_t)(rt << 12u);    // ...
     }
 #pragma clang diagnostic pop
     return 16;
@@ -390,6 +381,12 @@ size_t sh_t32_absolute_jump(uint16_t *buf, bool is_align4, uintptr_t addr) {
   buf[i++] = addr & 0xFFFFu;
   buf[i++] = addr >> 16u;
   return i * 2;
+}
+
+size_t sh_t32_restore_ip(uint16_t *buf) {
+  buf[0] = 0xF85D;  // LDR IP, [SP, #-4]
+  buf[1] = 0xCC04;  // ...
+  return 4;
 }
 
 size_t sh_t32_relative_jump(uint16_t *buf, uintptr_t addr, uintptr_t pc) {

@@ -1,45 +1,61 @@
-# ShadowHook
+# **shadowhook Manual**
 
 ![](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)
-![](https://img.shields.io/badge/release-1.1.1-red.svg?style=flat)
-![](https://img.shields.io/badge/Android-4.1%20--%2015-blue.svg?style=flat)
+![](https://img.shields.io/badge/release-2.0.0-red.svg?style=flat)
+![](https://img.shields.io/badge/Android-4.1%20--%2016-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
-[**简体中文**](README.zh-CN.md)
+[Readme - 简体中文](README.zh-CN.md)
 
-**ShadowHook** is an Android inline hook library which supports thumb, arm32 and arm64.
 
-ShadowHook is now used in TikTok, Douyin, Toutiao, Xigua Video, Lark.
+## Introduction
 
-If you need an Android PLT hook library, please move to [ByteHook](https://github.com/bytedance/bhook).
+**shadowhook is an Android inline hook library.** Its goals are:
+
+- **Stability** - Can be stably used in production apps.
+- **Compatibility** - Always maintains backward compatibility of API and ABI in new versions.
+- **Performance** - Continuously reduces API call overhead and additional runtime overhead introduced by hooks.
+- **Functionality** - Besides basic hook functionality, provides general solutions for "hook-related" issues.
+
+> If you need an Android PLT hook library, try [ByteHook](https://github.com/bytedance/bhook).
 
 
 ## Features
 
-* Support Android 4.1 - 15 (API level 16 - 35).
-* Support armeabi-v7a and arm64-v8a.
-* Support hook for the whole function, but does not support hook for the middle position of the function.
-* Support to specify the hook location by "function address" or "library name + function name".
-* Automatically complete the hook of "newly loaded dynamic library" (only "library name + function name"), and call the optional callback function after the hook is completed.
-* Multiple hooks and unhooks can be executed concurrently on the same hook point without interfering with each other (only in shared mode).
-* Automatically avoid possible recursive calls and circular calls between proxy functions (only in shared mode).
-* The proxy function supports unwinding backtrace in a normal way (CFI, EH, FP).
-* Integrated symbol address search function.
-* MIT licensed.
+- Supports armeabi-v7a and arm64-v8a.
+- Supports Android `4.1` - `16` (API level `16` - `36`).
+- Supports hook and intercept.
+- Supports specifying hook and intercept target locations via "address" or "library name + function name".
+- Automatically completes hook and intercept for "newly loaded ELFs", with optional callbacks after execution.
+- Automatically prevents recursive circular calls between proxy functions.
+- Supports hook and intercept operation recording, which can be exported at any time.
+- Supports registering callbacks before and after linker calls `.init` + `.init_array` and `.fini` + `.fini_array` of newly loaded ELFs.
+- Supports bypassing linker namespace restrictions to query symbol addresses in `.dynsym` and `.symtab` of all ELFs in the process.
+- Compatible with CFI unwind and FP unwind in hook proxy functions and intercept interceptor functions.
+- Licensed under the MIT license.
 
 
 ## Documentation
 
-[ShadowHook Manual](doc/manual.md)
+[shadowhook Manual](doc/manual.md)
+
+> [!CAUTION]
+> The "Quick Start" below will get your DEMO running. However, shadowhook is not just a few hook APIs. To use shadowhook stably in production apps and fully leverage its capabilities, please be sure to read the "shadowhook Manual".
 
 
 ## Quick Start
 
-You can refer to the sample app in [app module](app), or refer to the hook/unhook examples of commonly used system functions in [systest module](systest).
+### 1. Add dependencies in build.gradle
 
-### 1. Add dependency in build.gradle
+shadowhook is published on [Maven Central](https://search.maven.org/). To use [native dependencies](https://developer.android.com/studio/build/native-dependencies), shadowhook uses the [Prefab](https://google.github.io/prefab/) package format, which is supported from [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
 
-ShadowHook is published on [Maven Central](https://search.maven.org/), and uses [Prefab](https://google.github.io/prefab/) package format for [native dependencies](https://developer.android.com/studio/build/native-dependencies), which is supported by [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
+```Gradle
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+```
 
 ```Gradle
 android {
@@ -49,17 +65,19 @@ android {
 }
 
 dependencies {
-    implementation 'com.bytedance.android:shadowhook:1.1.1'
+    implementation 'com.bytedance.android:shadowhook:x.y.z'
 }
 ```
 
-**Note**: ShadowHook uses the [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is configured by default since [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you are using Android Gradle Plugin earlier than 7.1.0, please add the following configuration to `gradle.properties`:
+Replace `x.y.z` with the version number. It's recommended to use the latest [release](https://github.com/bytedance/android-inline-hook/releases) version.
+
+**Note**: shadowhook uses [prefab package schema v2](https://github.com/google/prefab/releases/tag/v2.0.0), which is the default configuration from [Android Gradle Plugin 7.1.0](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#7-1-0). If you're using a version of Android Gradle Plugin prior to 7.1.0, add the following configuration to `gradle.properties`:
 
 ```
 android.prefabVersion=2.0.0
 ```
 
-### 2. Add dependency in CMakeLists.txt or Android.mk
+### 2. Add dependencies in CMakeLists.txt or Android.mk
 
 > CMakeLists.txt
 
@@ -82,7 +100,7 @@ include $(BUILD_SHARED_LIBRARY)
 $(call import-module,prefab/shadowhook)
 ```
 
-### 3. Specify one or more ABI(s) you need
+### 3. Specify one or more ABIs you need
 
 ```Gradle
 android {
@@ -96,7 +114,9 @@ android {
 
 ### 4. Add packaging options
 
-If you are using ShadowHook in an SDK project, you may need to avoid packaging libshadowhook.so into your AAR, so as not to encounter duplicate libshadowhook.so file when packaging the app project.
+shadowhook includes two `.so` files: libshadowhook.so and libshadowhook_nothing.so.
+
+If you're using shadowhook in an SDK project, you need to avoid packaging libshadowhook.so and libshadowhook_nothing.so into your AAR to prevent duplicate `.so` file issues when packaging the app.
 
 ```Gradle
 android {
@@ -107,7 +127,7 @@ android {
 }
 ```
 
-On the other hand, if you are using ShadowHook in an APP project, you may need to add some options to deal with conflicts caused by duplicate libshadowhook.so file.
+On the other hand, if you're using shadowhook in an APP project, you may need to add some options to handle conflicts caused by duplicate `.so` files. **However, this may cause the APP to use an incorrect version of shadowhook.**
 
 ```Gradle
 android {
@@ -120,13 +140,13 @@ android {
 
 ### 5. Initialize
 
-ShadowHook supports two modes (shared mode and unique mode). The proxy function in the two modes is written slightly differently. You can try the unique mode first. 
+shadowhook supports three modes (shared, multi, unique). You can try the unique mode first.
 
 ```Java
 import com.bytedance.shadowhook.ShadowHook;
 
 public class MySdk {
-    public static void init() {
+    public void init() {
         ShadowHook.init(new ShadowHook.ConfigBuilder()
             .setMode(ShadowHook.Mode.UNIQUE)
             .build());
@@ -134,93 +154,126 @@ public class MySdk {
 }
 ```
 
-### 6. Hook and Unhook
+### 6. hook and unhook
 
-```C
-#include "shadowhook.h"
+Hook applies to the **entire function**. You need to write a proxy function that receives arguments and passes return values in the same way as the original function, which typically means the proxy function needs to be defined with the same type as the original function (including: number of parameters, parameter order, parameter types, return value type). When the hook is successful, when the hooked function is executed, the proxy function will be executed first, and in the proxy function, you can decide whether to call the original function.
 
-void *shadowhook_hook_func_addr(
-    void *func_addr,
-    void *new_addr,
-    void **orig_addr);
-
-void *shadowhook_hook_sym_addr(
-    void *sym_addr,
-    void *new_addr,
-    void **orig_addr);
-
-void *shadowhook_hook_sym_name(
-    const char *lib_name,
-    const char *sym_name,
-    void *new_addr,
-    void **orig_addr);
-
-typedef void (*shadowhook_hooked_t)(
-    int error_number,
-    const char *lib_name,
-    const char *sym_name,
-    void *sym_addr,
-    void *new_addr,
-    void *orig_addr,
-    void *arg);
-
-void *shadowhook_hook_sym_name_callback(
-    const char *lib_name,
-    const char *sym_name,
-    void *new_addr,
-    void **orig_addr,
-    shadowhook_hooked_t hooked,
-    void *hooked_arg);
-
-int shadowhook_unhook(void *stub);
-```
-
-* `shadowhook_hook_func_addr`: hook a function (which has no symbol info in ELF) by absolute address.
-* `shadowhook_hook_sym_addr`: hook a function (which has symbol info in ELF) by absolute address.
-* `shadowhook_hook_sym_name`: hook a function by symbol name and ELF file name or path name.
-* `shadowhook_hook_sym_name_callback`: Similar to `shadowhook_hook_sym_name`, but the specified callback function will be called after the hook is completed.
-* `shadowhook_unhook`: unhook.
-
-For example, let's try to hook `art::ArtMethod::Invoke`:
+Example: hook the `art::ArtMethod::Invoke()` function in libart.so.
 
 ```C
 void *orig = NULL;
 void *stub = NULL;
 
-typedef void (*type_t)(void *, void *, uint32_t *, uint32_t, void *, const char *);
+// Type definition of the hooked function
+typedef void (*artmethod_invoke_func_type_t)(void *, void *, uint32_t *, uint32_t, void *, const char *);
 
-void proxy(void *thiz, void *thread, uint32_t *args, uint32_t args_size, void *result, const char *shorty)
-{
+// Proxy function
+void artmethod_invoke_proxy(void *thiz, void *thread, uint32_t *args, uint32_t args_size, void *result, const char *shorty) {
     // do something
-    ((type_t)orig)(thiz, thread, args, args_size, result, shorty);
+    ((artmethod_invoke_func_type_t)orig)(thiz, thread, args, args_size, result, shorty);
     // do something
 }
 
-void do_hook()
-{
+void do_hook() {
     stub = shadowhook_hook_sym_name(
                "libart.so",
                "_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc",
-               (void *)proxy,
+               (void *)artmethod_invoke_proxy,
                (void **)&orig);
     
-    if(stub == NULL)
-    {
+    if(stub == NULL) {
         int err_num = shadowhook_get_errno();
         const char *err_msg = shadowhook_to_errmsg(err_num);
         LOG("hook error %d - %s", err_num, err_msg);
     }
 }
 
-void do_unhook()
-{
-    shadowhook_unhook(stub);
-    stub = NULL;
+void do_unhook() {
+    int result = shadowhook_unhook(stub);
+
+    if(result != 0) {
+        int err_num = shadowhook_get_errno();
+        const char *err_msg = shadowhook_to_errmsg(err_num);
+        LOG("unhook error %d - %s", err_num, err_msg);
+    }
 }
 ```
 
-* `_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc` is the function symbol name of `art::ArtMethod::Invoke` processed by C++ Name Mangler in libart.so. You can use readelf to view it. The C function does not have the concept of Name Mangler.
-* The symbol name of `art::ArtMethod::Invoke` is different in previous versions of Android M. This example is only applicable to Android M and later versions. If you want to achieve better Android version compatibility, you need to handle the difference in function symbol names yourself.
+- `_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc` is the function symbol name of `art::ArtMethod::Invoke` in libart.so after C++ Name Mangler processing, which can be viewed using readelf. C functions do not have the concept of Name Mangler.
+- The symbol name of `art::ArtMethod::Invoke` is different in versions before Android M. This example only applies to Android M and later versions. If you want to achieve better Android version compatibility, you need to handle the differences in function symbol names yourself.
+
+### 7. intercept and unintercept
+
+Intercept applies to **instructions**. It can be the first instruction of a function or a certain instruction in the middle of a function. You need to write an interceptor function. When the intercept is successful, when the intercepted instruction is executed, the interceptor function will be executed first. In the interceptor function, you can read and modify the values of registers. After the interceptor function returns, the intercepted instruction will continue to be executed. Intercept is similar to the **breakpoint debugging** function of a debugger.
+
+Example: intercept a certain instruction in the `art::ArtMethod::Invoke()` function in libart.so.
+
+```C
+void *stub;
+
+#if defined(__aarch64__)
+void artmethod_invoke_interceptor(shadowhook_cpu_context_t *ctx, void *data) {
+    // When x19 equals 0, modify the values of x20 and x21
+    if (ctx->regs[19] == 0) {
+        ctx->regs[20] = 1;
+        ctx->regs[21] = 1000;
+        LOG("interceptor: found x19 == 0");
+    }
+
+    // When q0 equals 0, modify the values of q0, q1, q2, q3
+    if (ctx->vregs[0].q == 0) {
+        ctx->vregs[0].q = 1;
+        ctx->vregs[1].q = 0;
+        ctx->vregs[2].q = 0;
+        ctx->vregs[3].q = 0;
+        LOG("interceptor: found q0 == 0");
+    }
+}
+
+void do_intercept(void) {
+    // Query the address of art::ArtMethod::Invoke
+    void *handle = shadowhook_dlopen("libart.so");
+    if (handle == NULL) {
+        LOG("handle not found");
+        return;
+    }
+    void *sym_addr = shadowhook_dlsym(handle, "_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc");
+    shadowhook_dlclose(handle);
+    if (sym_addr == NULL) {
+        LOG("symbol not found");
+        return;
+    }
+
+    // Locate the address of a certain instruction in art::ArtMethod::Invoke
+    void *instr_addr = (void *)((uintptr_t)sym_addr + 20);
+    
+    stub = shadowhook_intercept_instr_addr(
+               instr_addr,
+               artmethod_invoke_interceptor,
+               NULL,
+               SHADOWHOOK_INTERCEPT_WITH_FPSIMD_READ_WRITE);
+
+    if(stub == NULL) {
+        int err_num = shadowhook_get_errno();
+        const char *err_msg = shadowhook_to_errmsg(err_num);
+        LOG("intercept failed: %d - %s", err_num, err_msg);
+    }
+}
+
+void do_unintercept() {
+    int result = shadowhook_unintercept(stub);
+
+    if (result != 0) {
+        int err_num = shadowhook_get_errno();
+        const char *err_msg = shadowhook_to_errmsg(err_num);
+        LOG("unintercept failed: %d - %s", err_num, err_msg);
+    }
+}
+#endif
+```
+
+- To simplify the example code, `instr_addr` is fixed as `sym_addr + 20`. In real scenarios, memory scanning and other methods are generally used to determine the address of the instruction that needs to be intercepted.
+- Since aarch32 and aarch64 have different registers and the instructions of the same function are different, the intercept logic generally needs to be written separately. Here only includes example code for aarch64.
 
 
 ## Contributing
@@ -232,7 +285,7 @@ void do_unhook()
 
 ## License
 
-ShadowHook is licensed by [MIT License](LICENSE).
+ShadowHook is licensed under the [MIT License](LICENSE).
 
 ShadowHook uses the following third-party source code or libraries:
 
@@ -247,4 +300,4 @@ BSD 3-Clause License
 Copyright (c) 2005-2011 Google Inc.
 * [xDL](https://github.com/hexhacking/xDL)  
 MIT License  
-Copyright (c) 2020-2024 HexHacking Team
+Copyright (c) 2020-2025 HexHacking Team

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ uintptr_t sh_txx_fix_addr(uintptr_t addr, sh_txx_rewrite_info_t *rinfo) {
       cursor_addr += 2;
       offset += rinfo->inst_lens[i];
     }
-    uintptr_t fixed_addr = (uintptr_t)rinfo->buf + offset;
+    uintptr_t fixed_addr = (uintptr_t)rinfo->buf + rinfo->inst_prolog_len + offset;
     if (is_thumb) fixed_addr = SH_UTIL_SET_BIT0(fixed_addr);
 
     SH_LOG_INFO("txx rewrite: fix addr %" PRIxPTR " -> %" PRIxPTR, addr, fixed_addr);

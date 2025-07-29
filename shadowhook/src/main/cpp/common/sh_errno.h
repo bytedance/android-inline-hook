@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,8 @@
 // Created by Kelun Cai (caikelun@bytedance.com) on 2021-04-11.
 
 #pragma once
+#include <stdbool.h>
+
 #include "sh_log.h"
 
 #define SH_ERRNO_SET_RET_ERRNUM(errnum) SH_ERRNO_SET_RET((errnum), (errnum))
@@ -33,7 +35,7 @@
     return (ret);                     \
   } while (0)
 
-int sh_errno_init(void);
+bool sh_errno_is_invalid(void);
 void sh_errno_reset(void);
 void sh_errno_set(int error_number);
 int sh_errno_get(void);

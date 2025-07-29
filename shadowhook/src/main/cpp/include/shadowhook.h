@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SHADOWHOOK_VERSION "1.1.1"
+#define SHADOWHOOK_VERSION "2.0.0"
 
 #define SHADOWHOOK_ERRNO_OK                     0
 #define SHADOWHOOK_ERRNO_PENDING                1
@@ -47,13 +47,13 @@
 #define SHADOWHOOK_ERRNO_INIT_ERRNO             7
 #define SHADOWHOOK_ERRNO_INIT_SIGSEGV           8
 #define SHADOWHOOK_ERRNO_INIT_SIGBUS            9
-#define SHADOWHOOK_ERRNO_INIT_ENTER             10
+#define SHADOWHOOK_ERRNO_INTERCEPT_DUP          10
 #define SHADOWHOOK_ERRNO_INIT_SAFE              11
 #define SHADOWHOOK_ERRNO_INIT_LINKER            12
 #define SHADOWHOOK_ERRNO_INIT_HUB               13
 #define SHADOWHOOK_ERRNO_HUB_CREAT              14
 #define SHADOWHOOK_ERRNO_MONITOR_DLOPEN         15
-#define SHADOWHOOK_ERRNO_MONITOR_THREAD         16
+#define SHADOWHOOK_ERRNO_HOOK_HUB_DUP           16
 #define SHADOWHOOK_ERRNO_HOOK_DLOPEN_CRASH      17
 #define SHADOWHOOK_ERRNO_HOOK_DLSYM             18
 #define SHADOWHOOK_ERRNO_HOOK_DLSYM_CRASH       19
@@ -77,6 +77,12 @@
 #define SHADOWHOOK_ERRNO_NOT_FOUND              37
 #define SHADOWHOOK_ERRNO_NOT_SUPPORT            38
 #define SHADOWHOOK_ERRNO_INIT_TASK              39
+#define SHADOWHOOK_ERRNO_HOOK_ISLAND_EXIT       40
+#define SHADOWHOOK_ERRNO_HOOK_ISLAND_ENTER      41
+#define SHADOWHOOK_ERRNO_HOOK_ISLAND_REWRITE    42
+#define SHADOWHOOK_ERRNO_MODE_CONFLICT          43
+#define SHADOWHOOK_ERRNO_HOOK_MULTI_DUP         44
+#define SHADOWHOOK_ERRNO_DISABLED               45
 
 #ifdef __cplusplus
 extern "C" {
@@ -86,20 +92,27 @@ const char *shadowhook_get_version(void);
 
 // init
 typedef enum {
-  SHADOWHOOK_MODE_SHARED = 0,  // a function can be hooked multiple times
-  SHADOWHOOK_MODE_UNIQUE = 1   // a function can only be hooked once, and hooking again will report an error
+  // The same address can be hooked multiple times (with proxies management, avoid recursion)
+  SHADOWHOOK_MODE_SHARED = 0,
+  // The same address can only be hooked once
+  SHADOWHOOK_MODE_UNIQUE = 1,
+  // The same address can be hooked multiple times
+  SHADOWHOOK_MODE_MULTI = 2
 } shadowhook_mode_t;
-int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
+int shadowhook_init(shadowhook_mode_t default_mode, bool debuggable);
 int shadowhook_get_init_errno(void);
 
 // get and set attributes
 #define SHADOWHOOK_IS_SHARED_MODE (SHADOWHOOK_MODE_SHARED == shadowhook_get_mode())
 #define SHADOWHOOK_IS_UNIQUE_MODE (SHADOWHOOK_MODE_UNIQUE == shadowhook_get_mode())
+#define SHADOWHOOK_IS_MULTI_MODE  (SHADOWHOOK_MODE_MULTI == shadowhook_get_mode())
 shadowhook_mode_t shadowhook_get_mode(void);
 bool shadowhook_get_debuggable(void);
 void shadowhook_set_debuggable(bool debuggable);
 bool shadowhook_get_recordable(void);
 void shadowhook_set_recordable(bool recordable);
+bool shadowhook_get_disable(void);
+void shadowhook_set_disable(bool disable);
 
 // get error-number and error message
 int shadowhook_get_errno(void);
@@ -115,8 +128,77 @@ void *shadowhook_hook_sym_name_callback(const char *lib_name, const char *sym_na
                                         void **orig_addr, shadowhook_hooked_t hooked, void *hooked_arg);
 int shadowhook_unhook(void *stub);
 
+// hook with flags
+#define SHADOWHOOK_HOOK_DEFAULT          0  // 0b0000
+#define SHADOWHOOK_HOOK_WITH_SHARED_MODE 1  // 0b0001
+#define SHADOWHOOK_HOOK_WITH_UNIQUE_MODE 2  // 0b0010
+#define SHADOWHOOK_HOOK_WITH_MULTI_MODE  4  // 0b0100
+#define SHADOWHOOK_HOOK_RECORD           8  // 0b1000
+void *shadowhook_hook_func_addr_2(void *func_addr, void *new_addr, void **orig_addr, uint32_t flags,
+                                  ... /* char *record_lib_name, char *record_sym_name */);
+void *shadowhook_hook_sym_addr_2(void *sym_addr, void *new_addr, void **orig_addr, uint32_t flags,
+                                 ... /* char *record_lib_name, char *record_sym_name */);
+void *shadowhook_hook_sym_name_2(const char *lib_name, const char *sym_name, void *new_addr, void **orig_addr,
+                                 uint32_t flags);
+void *shadowhook_hook_sym_name_callback_2(const char *lib_name, const char *sym_name, void *new_addr,
+                                          void **orig_addr, uint32_t flags, shadowhook_hooked_t hooked,
+                                          void *hooked_arg);
+
+// intercept and unintercept
+typedef union {
+#if defined(__aarch64__)
+  __uint128_t q;
+#endif
+  uint64_t d[2];
+  uint32_t s[4];
+  uint16_t h[8];
+  uint8_t b[16];
+} shadowhook_vreg_t;
+
+#if defined(__aarch64__)
+typedef struct {
+  uint64_t regs[31];  // x0-x30
+  uint64_t sp;
+  uint64_t pc;
+  uint64_t pstate;
+  shadowhook_vreg_t vregs[32];  // q0-q31
+  uint64_t fpsr;
+  uint64_t fpcr;
+} shadowhook_cpu_context_t;
+#elif defined(__arm__)
+typedef struct {
+  uint32_t regs[16];  // r0-r15
+  uint32_t cpsr;
+  uint32_t fpscr;
+  // (1) NEON, VFPv4, VFPv3-D32: q0-q15(d0-d31)
+  // (2) VFPv3-D16: q0-q7(d0-d15)
+  shadowhook_vreg_t vregs[16];
+} shadowhook_cpu_context_t;
+#endif
+
+#define SHADOWHOOK_INTERCEPT_DEFAULT                0  // 0b000
+#define SHADOWHOOK_INTERCEPT_WITH_FPSIMD_READ_ONLY  1  // 0b001
+#define SHADOWHOOK_INTERCEPT_WITH_FPSIMD_WRITE_ONLY 2  // 0b010
+#define SHADOWHOOK_INTERCEPT_WITH_FPSIMD_READ_WRITE 3  // 0b011
+#define SHADOWHOOK_INTERCEPT_RECORD                 4  // 0b100
+typedef void (*shadowhook_interceptor_t)(shadowhook_cpu_context_t *cpu_context, void *data);
+typedef void (*shadowhook_intercepted_t)(int error_number, const char *lib_name, const char *sym_name,
+                                         void *sym_addr, shadowhook_interceptor_t pre, void *data, void *arg);
+void *shadowhook_intercept_instr_addr(void *instr_addr, shadowhook_interceptor_t pre, void *data,
+                                      uint32_t flags, ... /* char *record_lib_name, char *record_sym_name */);
+void *shadowhook_intercept_func_addr(void *func_addr, shadowhook_interceptor_t pre, void *data,
+                                     uint32_t flags, ... /* char *record_lib_name, char *record_sym_name */);
+void *shadowhook_intercept_sym_addr(void *sym_addr, shadowhook_interceptor_t pre, void *data, uint32_t flags,
+                                    ... /* char *record_lib_name, char *record_sym_name */);
+void *shadowhook_intercept_sym_name(const char *lib_name, const char *sym_name, shadowhook_interceptor_t pre,
+                                    void *data, uint32_t flags);
+void *shadowhook_intercept_sym_name_callback(const char *lib_name, const char *sym_name,
+                                             shadowhook_interceptor_t pre, void *data, uint32_t flags,
+                                             shadowhook_intercepted_t intercepted, void *intercepted_arg);
+int shadowhook_unintercept(void *stub);
+
 // get operation records
-#define SHADOWHOOK_RECORD_ITEM_ALL             0x3FF  // 0b1111111111
+#define SHADOWHOOK_RECORD_ITEM_ALL             0x7FF  // 0b11111111111
 #define SHADOWHOOK_RECORD_ITEM_TIMESTAMP       (1 << 0)
 #define SHADOWHOOK_RECORD_ITEM_CALLER_LIB_NAME (1 << 1)
 #define SHADOWHOOK_RECORD_ITEM_OP              (1 << 2)
@@ -127,6 +209,7 @@ int shadowhook_unhook(void *stub);
 #define SHADOWHOOK_RECORD_ITEM_BACKUP_LEN      (1 << 7)
 #define SHADOWHOOK_RECORD_ITEM_ERRNO           (1 << 8)
 #define SHADOWHOOK_RECORD_ITEM_STUB            (1 << 9)
+#define SHADOWHOOK_RECORD_ITEM_FLAGS           (1 << 10)
 char *shadowhook_get_records(uint32_t item_flags);
 void shadowhook_dump_records(int fd, uint32_t item_flags);
 
@@ -163,11 +246,9 @@ void *shadowhook_get_return_address(void);
 #define SHADOWHOOK_CALL_PREV(func, func_sig, ...) \
   ((func_sig)shadowhook_get_prev_func((void *)(func)))(__VA_ARGS__)
 #endif
+
 // pop stack in proxy-function (for C/C++)
-#define SHADOWHOOK_POP_STACK()                                                        \
-  do {                                                                                \
-    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_pop_stack(__builtin_return_address(0)); \
-  } while (0)
+#define SHADOWHOOK_POP_STACK() shadowhook_pop_stack(__builtin_return_address(0))
 
 // pop stack in proxy-function (for C++ only)
 #ifdef __cplusplus
@@ -175,7 +256,7 @@ class ShadowhookStackScope {
  public:
   ShadowhookStackScope(void *return_address) : return_address_(return_address) {}
   ~ShadowhookStackScope() {
-    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_pop_stack(return_address_);
+    shadowhook_pop_stack(return_address_);
   }
 
  private:
@@ -185,19 +266,12 @@ class ShadowhookStackScope {
 #endif
 
 // allow reentrant of the current proxy-function
-#define SHADOWHOOK_ALLOW_REENTRANT()                                                        \
-  do {                                                                                      \
-    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_allow_reentrant(__builtin_return_address(0)); \
-  } while (0)
+#define SHADOWHOOK_ALLOW_REENTRANT() shadowhook_allow_reentrant(__builtin_return_address(0))
 
 // disallow reentrant of the current proxy-function
-#define SHADOWHOOK_DISALLOW_REENTRANT()                                                        \
-  do {                                                                                         \
-    if (SHADOWHOOK_IS_SHARED_MODE) shadowhook_disallow_reentrant(__builtin_return_address(0)); \
-  } while (0)
+#define SHADOWHOOK_DISALLOW_REENTRANT() shadowhook_disallow_reentrant(__builtin_return_address(0))
 
 // get return address in proxy-function
-#define SHADOWHOOK_RETURN_ADDRESS() \
-  ((void *)(SHADOWHOOK_IS_SHARED_MODE ? shadowhook_get_return_address() : __builtin_return_address(0)))
+#define SHADOWHOOK_RETURN_ADDRESS() shadowhook_get_return_address()
 
 #endif

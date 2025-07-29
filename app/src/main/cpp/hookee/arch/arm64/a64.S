@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,8 +35,40 @@ ENTRY_HIDDEN_ARM(test_hidden_func)
     nop
     nop
     nop
+    nop
     ret
 END(test_hidden_func)
+
+
+// benchmark for unique mode
+ENTRY_GLOBAL_ARM(test_a64_for_unique)
+    add      x0, x0, x1
+    nop
+    nop
+    nop
+    nop
+    ret
+END(test_a64_for_unique)
+
+// benchmark for multi mode
+ENTRY_GLOBAL_ARM(test_a64_for_multi)
+    add      x0, x0, x1
+    nop
+    nop
+    nop
+    nop
+    ret
+END(test_a64_for_multi)
+
+// benchmark for shared mode
+ENTRY_GLOBAL_ARM(test_a64_for_shared)
+    add      x0, x0, x1
+    nop
+    nop
+    nop
+    nop
+    ret
+END(test_a64_for_shared)
 
 
 // B
@@ -45,15 +77,17 @@ ENTRY_GLOBAL_ARM(test_a64_b)
     nop
     nop
     nop
+    nop
     ret
 END(test_a64_b)
 
 // B fixaddr
 ENTRY_GLOBAL_ARM(test_a64_b_fixaddr)
-    b        .a64_b_fixaddr_short_jump
+    b        .L_a64_b_fixaddr_next
     ret
-.a64_b_fixaddr_short_jump:
+.L_a64_b_fixaddr_next:
     b        test_a64_helper_global
+    nop
     nop
     ret
 END(test_a64_b_fixaddr)
@@ -64,15 +98,16 @@ ENTRY_GLOBAL_ARM(test_a64_b_cond)
     b.ne     test_a64_helper_hidden_tail
     nop
     nop
+    nop
     ret
 END(test_a64_b_cond)
 
 // B cond fixaddr
 ENTRY_GLOBAL_ARM(test_a64_b_cond_fixaddr)
     cmp      x0, x1
-    b.ne     .a64_b_fixaddr_cond_short_jump
+    b.ne     .L_a64_b_cond_fixaddr_next
     ret
-.a64_b_fixaddr_cond_short_jump:
+.L_a64_b_cond_fixaddr_next:
     b        test_a64_helper_hidden_tail
     nop
     ret
@@ -91,33 +126,34 @@ END(test_a64_bl)
 // BL fixaddr
 ENTRY_GLOBAL_ARM(test_a64_bl_fixaddr)
     stp      x29, x30, [sp, #-0x10]!
-    bl       .a64_bl_fixaddr_short_jump
-    b        .a64_bl_fixaddr_ret
-.a64_bl_fixaddr_short_jump:
+    bl       .L_a64_bl_fixaddr_next
+    b        .L_a64_bl_fixaddr_ret
+.L_a64_bl_fixaddr_next:
     add      x0, x0, x1
     ret
-.a64_bl_fixaddr_ret:
+.L_a64_bl_fixaddr_ret:
     ldp      x29, x30, [sp], #0x10
     ret
 END(test_a64_bl_fixaddr)
 
 // ADR
 ENTRY_GLOBAL_ARM(test_a64_adr)
-    adr      x16, test_a64_helper_hidden_tail
+    adr      x9, test_a64_helper_hidden_tail
     nop
     nop
     nop
-    br       x16
+    nop
+    br       x9
 END(test_a64_adr)
 
 // ADRP
 ENTRY_GLOBAL_ARM(test_a64_adrp)
-    adrp     x16, 0x1000
+    adrp     x9, 0x1000
     nop
     nop
     nop
-    adrp     x17, 0x1000
-    cmp      x16, x17
+    adrp     x10, 0x1000
+    cmp      x9, x10
     b.eq     test_a64_helper_global
     ret
 END(test_a64_adrp)
@@ -125,45 +161,45 @@ END(test_a64_adrp)
 // LDR LIT 32
 ENTRY_GLOBAL_ARM(test_a64_ldr_lit_32)
     stp      x8, x9, [sp, #-0x10]!
-    ldr      w8, .a64_ldr_lit_32_1
-    ldr      w9, .a64_ldr_lit_32_2
+    ldr      w8, .L_a64_ldr_lit_32_1
+    ldr      w9, .L_a64_ldr_lit_32_2
     cmp      w8, w9
     ldp      x8, x9, [sp], #0x10
     b.eq     test_a64_helper_global
     ret
-.a64_ldr_lit_32_1:
+.L_a64_ldr_lit_32_1:
     .word    12345
-.a64_ldr_lit_32_2:
+.L_a64_ldr_lit_32_2:
     .word    12345
 END(test_a64_ldr_lit_32)
 
 // LDR LIT 64
 ENTRY_GLOBAL_ARM(test_a64_ldr_lit_64)
     stp      x8, x9, [sp, #-0x10]!
-    ldr      x8, .a64_ldr_lit_64_1
-    ldr      x9, .a64_ldr_lit_64_2
+    ldr      x8, .L_a64_ldr_lit_64_1
+    ldr      x9, .L_a64_ldr_lit_64_2
     cmp      x8, x9
     ldp      x8, x9, [sp], #0x10
     b.eq     test_a64_helper_global
     ret
-.a64_ldr_lit_64_1:
+.L_a64_ldr_lit_64_1:
     .dword   0x123456789ABCDEF
-.a64_ldr_lit_64_2:
+.L_a64_ldr_lit_64_2:
     .dword   0x123456789ABCDEF
 END(test_a64_ldr_lit_64)
 
 // LDRSW LIT
 ENTRY_GLOBAL_ARM(test_a64_ldrsw_lit)
     stp      x8, x9, [sp, #-0x10]!
-    ldrsw    x8, .a64_ldrsw_lit_1
-    ldrsw    x9, .a64_ldrsw_lit_2
+    ldrsw    x8, .L_a64_ldrsw_lit_1
+    ldrsw    x9, .L_a64_ldrsw_lit_2
     cmp      x8, x9
     ldp      x8, x9, [sp], #0x10
     b.eq     test_a64_helper_global
     ret
-.a64_ldrsw_lit_1:
+.L_a64_ldrsw_lit_1:
     .dword   0x123456789ABCDEF
-.a64_ldrsw_lit_2:
+.L_a64_ldrsw_lit_2:
     .dword   0x123456789ABCDEF
 END(test_a64_ldrsw_lit)
 
@@ -173,36 +209,37 @@ ENTRY_GLOBAL_ARM(test_a64_prfm_lit)
     nop
     nop
     nop
+    nop
     b        test_a64_helper_global
 END(test_a64_prfm_lit)
 
 // LDR SIMD LIT 32
 ENTRY_GLOBAL_ARM(test_a64_ldr_simd_lit_32)
     stp      q8, q9, [sp, #-0x20]!
-    ldr      s8, .a64_ldr_simd_lit_32_1
-    ldr      s9, .a64_ldr_simd_lit_32_2
+    ldr      s8, .L_a64_ldr_simd_lit_32_1
+    ldr      s9, .L_a64_ldr_simd_lit_32_2
     fcmp     s8, s9
     ldp      q8, q9, [sp], #0x20
     b.eq     test_a64_helper_global
     ret
-.a64_ldr_simd_lit_32_1:
+.L_a64_ldr_simd_lit_32_1:
     .float   123.45
-.a64_ldr_simd_lit_32_2:
+.L_a64_ldr_simd_lit_32_2:
     .float   123.45
 END(test_a64_ldr_simd_lit_32)
 
 // LDR SIMD LIT 64
 ENTRY_GLOBAL_ARM(test_a64_ldr_simd_lit_64)
     stp      q8, q9, [sp, #-0x20]!
-    ldr      d8, .a64_ldr_simd_lit_64_1
-    ldr      d9, .a64_ldr_simd_lit_64_2
+    ldr      d8, .L_a64_ldr_simd_lit_64_1
+    ldr      d9, .L_a64_ldr_simd_lit_64_2
     fcmp     d8, d9
     ldp      q8, q9, [sp], #0x20
     b.eq     test_a64_helper_global
     ret
-.a64_ldr_simd_lit_64_1:
+.L_a64_ldr_simd_lit_64_1:
     .double  123.45
-.a64_ldr_simd_lit_64_2:
+.L_a64_ldr_simd_lit_64_2:
     .double  123.45
 END(test_a64_ldr_simd_lit_64)
 
@@ -210,112 +247,187 @@ END(test_a64_ldr_simd_lit_64)
 ENTRY_GLOBAL_ARM(test_a64_ldr_simd_lit_128)
     stp      q8, q9, [sp, #-0x20]!
     stp      x0, x1, [sp, #-0x10]!
-    ldr      q8, .a64_ldr_simd_lit_128_1
-    ldr      q9, .a64_ldr_simd_lit_128_2
+    ldr      q8, .L_a64_ldr_simd_lit_128_1
+    ldr      q9, .L_a64_ldr_simd_lit_128_2
     mov      x0, v8.d[0]
     mov      x1, v9.d[0]
     cmp      x0, x1
-    b.ne     .a64_ldr_simd_lit_128_ret
+    b.ne     .L_a64_ldr_simd_lit_128_ret
     mov      x0, v8.d[1]
     mov      x1, v9.d[1]
     cmp      x0, x1
-    b.ne     .a64_ldr_simd_lit_128_ret
+    b.ne     .L_a64_ldr_simd_lit_128_ret
     ldp      x0, x1, [sp], #0x10
     ldp      q8, q9, [sp], #0x20
     b        test_a64_helper_global
     ret
-.a64_ldr_simd_lit_128_ret:
+.L_a64_ldr_simd_lit_128_ret:
     ldp      x0, x1, [sp], #0x10
     ldp      q8, q9, [sp], #0x20
     ret
-.a64_ldr_simd_lit_128_1:
+.L_a64_ldr_simd_lit_128_1:
     .dword   0x123456789ABCDEF
     .dword   0x123456789ABCDEF
-.a64_ldr_simd_lit_128_2:
+.L_a64_ldr_simd_lit_128_2:
     .dword   0x123456789ABCDEF
     .dword   0x123456789ABCDEF
 END(test_a64_ldr_simd_lit_128)
 
 // CBZ
 ENTRY_GLOBAL_ARM(test_a64_cbz)
-    mov      x16, #0
-    cbz      x16, .a64_cbz_next
+    mov      x9, #0
+    cbz      x9, .L_a64_cbz_next
+    nop
     nop
     nop
     ret
-.a64_cbz_next:
+.L_a64_cbz_next:
     b        test_a64_helper_global
 END(test_a64_cbz)
 
 // CBZ fixaddr
 ENTRY_GLOBAL_ARM(test_a64_cbz_fixaddr)
-    mov      x16, #0
-    cbz      x16, .a64_cbz_fixaddr_next
+    mov      x9, #0
+    cbz      x9, .L_a64_cbz_fixaddr_next
     ret
-.a64_cbz_fixaddr_next:
+.L_a64_cbz_fixaddr_next:
     b        test_a64_helper_global
+    nop
+    nop
 END(test_a64_cbz_fixaddr)
 
 // CBNZ
 ENTRY_GLOBAL_ARM(test_a64_cbnz)
     mov      w16, #1
-    cbnz     w16, .a64_cbnz_next
+    cbnz     w16, .L_a64_cbnz_next
+    nop
     nop
     nop
     ret
-.a64_cbnz_next:
+.L_a64_cbnz_next:
     b        test_a64_helper_global
 END(test_a64_cbnz)
 
 // CBNZ fixaddr
 ENTRY_GLOBAL_ARM(test_a64_cbnz_fixaddr)
     mov      w16, #1
-    cbnz     w16, .a64_cbnz_fixaddr_next
+    cbnz     w16, .L_a64_cbnz_fixaddr_next
     ret
-.a64_cbnz_fixaddr_next:
+.L_a64_cbnz_fixaddr_next:
     b        test_a64_helper_global
+    nop
+    nop
 END(test_a64_cbnz_fixaddr)
 
 // TBZ
 ENTRY_GLOBAL_ARM(test_a64_tbz)
-    mov      x16, #0b1000
-    tbz      x16, #2, .a64_tbz_next
+    mov      x9, #0b1000
+    tbz      x9, #2, .L_a64_tbz_next
+    nop
     nop
     nop
     ret
-.a64_tbz_next:
+.L_a64_tbz_next:
     b        test_a64_helper_global
 END(test_a64_tbz)
 
 // TBZ fixaddr
 ENTRY_GLOBAL_ARM(test_a64_tbz_fixaddr)
-    mov      x16, #0b1000
-    tbz      x16, #2, .a64_tbz_fixaddr_next
+    mov      x9, #0b1000
+    tbz      x9, #2, .L_a64_tbz_fixaddr_next
     ret
-.a64_tbz_fixaddr_next:
+.L_a64_tbz_fixaddr_next:
     b        test_a64_helper_global
+    nop
+    nop
 END(test_a64_tbz_fixaddr)
 
 // TBNZ
 ENTRY_GLOBAL_ARM(test_a64_tbnz)
     mov      w16, #0b1100
-    tbnz     w16, #2, .a64_tbnz_next
+    tbnz     w16, #2, .L_a64_tbnz_next
+    nop
     nop
     nop
     ret
-.a64_tbnz_next:
+.L_a64_tbnz_next:
     b        test_a64_helper_global
 END(test_a64_tbnz)
 
 // TBNZ fixaddr
 ENTRY_GLOBAL_ARM(test_a64_tbnz_fixaddr)
     mov      w16, #0b1100
-    tbnz     w16, #2, .a64_tbnz_fixaddr_next
+    tbnz     w16, #2, .L_a64_tbnz_fixaddr_next
     ret
-.a64_tbnz_fixaddr_next:
+.L_a64_tbnz_fixaddr_next:
     b        test_a64_helper_global
+    nop
+    nop
 END(test_a64_tbnz_fixaddr)
 
+// instr B
+ENTRY_GLOBAL_ARM(test_a64_instr_b)
+    nop
+    mov      x17, #123
+    b        #8
+    mov      x17, #345
+    cmp      x17, #123
+    nop
+    nop
+    b.ne     #8
+    add      x0, x0, x1
+    nop
+    nop
+    nop
+    nop
+    ret
+END(test_a64_instr_b)
+
+// instr B cond
+ENTRY_GLOBAL_ARM(test_a64_instr_b_cond)
+    mov      x17, #123
+    cmp      x17, #123
+    b.eq     #8
+    mov      x17, #345
+    cmp      x17, #123
+    nop
+    nop
+    b.ne     #8
+    add      x0, x0, x1
+    nop
+    nop
+    nop
+    nop
+    ret
+END(test_a64_instr_b_cond)
+
+// instr CBZ
+ENTRY_GLOBAL_ARM(test_a64_instr_cbz)
+    nop
+    mov      x17, #0
+    cbz      x17, .L_a64_instr_cbz_next
+    nop
+    nop
+    ret
+.L_a64_instr_cbz_next:
+    cmp      x17, #0
+    b.eq     test_a64_helper_global
+    ret
+END(test_a64_instr_cbz)
+
+// instr TBZ
+ENTRY_GLOBAL_ARM(test_a64_instr_tbz)
+    nop
+    mov      x17, #0b1000
+    tbz      x17, #2, .L_a64_instr_tbz_next
+    nop
+    nop
+    ret
+.L_a64_instr_tbz_next:
+    cmp      x17, #0b1000
+    b        test_a64_helper_global
+    ret
+END(test_a64_instr_tbz)
 
 ENTRY_HIDDEN_ARM(test_a64_helper_hidden_tail)
     add      x0, x0, x1

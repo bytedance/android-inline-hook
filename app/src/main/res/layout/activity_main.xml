@@ -1,74 +1,121 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:paddingTop="50dp"
-    android:paddingBottom="50dp"
     tools:context=".MainActivity">
-
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical">
-
         <TextView style="@style/Theme.TextView.Top"
             android:text="adb logcat -s shadowhook_tag" />
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/white"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
-        <TextView style="@style/Theme.TextView.Title"
-            android:text="1. unit test"  />
+                <TextView style="@style/Theme.TextView.Title"
+                    android:text="unit test"  />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/unitTestHookSymAddr"
-            android:text="hook symbol address" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestHookSymAddr"
+                    android:text="hook sym/func addr" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/unitTestHookSymName"
-            android:text="hook symbol name" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestHookSymName"
+                    android:text="hook sym name" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/unitTestUnhook"
-            android:text="unhook" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestUnhook"
+                    android:text="unhook" />
 
-        <Button style="@style/Theme.Button.Red"
-            android:id="@+id/unitTestLoad"
-            android:text="dlopen libhookee2.so" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymAddr"
+                    android:text="intercept sym/func/instr addr" />
 
-        <Button style="@style/Theme.Button.Red"
-            android:id="@+id/unitTestUnload"
-            android:text="dlclose libhookee2.so" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymName"
+                    android:text="intercept sym name" />
 
-        <Button style="@style/Theme.Button.Red"
-            android:id="@+id/unitTestRun"
-            android:text="run" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymAddrReadFpsimd"
+                    android:text="intercept(r FPSIMD) sym/func/instr addr" />
 
-        <TextView style="@style/Theme.TextView.Title"
-            android:text="2. system test"  />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymNameReadFpsimd"
+                    android:text="intercept(r FPSIMD) sym name" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/systemtestTestHook"
-            android:text="hook" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymAddrReadWriteFpsimd"
+                    android:text="intercept(rw FPSIMD) sym/func/instr addr" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/systemtestTestUnhook"
-            android:text="unhook" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestInterceptSymNameReadWriteFpsimd"
+                    android:text="intercept(rw FPSIMD) sym name" />
 
-        <Button style="@style/Theme.Button.Red"
-            android:id="@+id/systemtestTestRun"
-            android:text="run" />
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/unitTestUnintercept"
+                    android:text="unintercept" />
 
-        <TextView style="@style/Theme.TextView.Title"
-            android:text="3. operation records"  />
+                <Button style="@style/Theme.Button.Red"
+                    android:id="@+id/unitTestLoad"
+                    android:text="dlopen libhookee2.so" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/getRecords"
-            android:text="get records (as a string)" />
+                <Button style="@style/Theme.Button.Red"
+                    android:id="@+id/unitTestUnload"
+                    android:text="dlclose libhookee2.so" />
 
-        <Button style="@style/Theme.Button"
-            android:id="@+id/dumpRecords"
-            android:text="dump records (to FD)" />
+                <Button style="@style/Theme.Button.Red"
+                    android:id="@+id/unitTestRun"
+                    android:text="run" />
 
+                <Button style="@style/Theme.Button.Red"
+                    android:id="@+id/unitTestBenchmark"
+                    android:text="benchmark" />
+
+                <TextView style="@style/Theme.TextView.Title"
+                    android:text="system test" />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/systemtestTestHook"
+                    android:text="hook" />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/systemtestTestUnhook"
+                    android:text="unhook" />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/systemtestTestIntercept"
+                    android:text="intercept" />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/systemtestTestUnintercept"
+                    android:text="unintercept" />
+
+                <Button style="@style/Theme.Button.Red"
+                    android:id="@+id/systemtestTestRun"
+                    android:text="run" />
+
+                <TextView style="@style/Theme.TextView.Title"
+                    android:text="operation records"  />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/getRecords"
+                    android:text="get records (as a string)" />
+
+                <Button style="@style/Theme.Button"
+                    android:id="@+id/dumpRecords"
+                    android:text="dump records (to FD)" />
+            </LinearLayout>
+        </ScrollView>
     </LinearLayout>
-</ScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,6 @@
 
 #include "sh_util.h"
 #include "shadowhook.h"
-#include "xdl.h"
 
 int sh_linker_init(void);
 
@@ -45,5 +44,26 @@ int sh_linker_register_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_
 int sh_linker_unregister_dl_fini_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data);
 
 // linker utils
-int sh_linker_get_dlinfo_by_addr(void *addr, xdl_info_t *dlinfo, bool ignore_symbol_check);
-int sh_linker_get_dlinfo_by_sym_name(const char *lib_name, const char *sym_name, xdl_info_t *dlinfo);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpadded"
+typedef struct {
+  void *dli_fbase;              // ELF load_bias
+  void *dli_saddr;              // symbol address
+  size_t dli_ssize;             // symbol size
+  const ElfW(Phdr) *dlpi_phdr;  // ELF program headers
+  size_t dlpi_phnum;            // number of items in dlpi_phdr
+  bool is_sym_addr;
+  bool is_proc_start;
+} sh_addr_info_t;
+#pragma clang diagnostic pop
+int sh_linker_get_addr_info_by_addr(void *addr, bool is_sym_addr, bool is_proc_start,
+                                    sh_addr_info_t *addr_info, bool ignore_sym_info, char *fname,
+                                    size_t fname_len);
+int sh_linker_get_addr_info_by_sym_name(const char *lib_name, const char *sym_name,
+                                        sh_addr_info_t *addr_info);
+void sh_linker_get_fname_by_fbase(void *fbase, char *fname, size_t fname_len);
+bool sh_linker_is_addr_in_elf_pt_load(uintptr_t addr, void *dli_fbase, const ElfW(Phdr) *dlpi_phdr,
+                                      size_t dlpi_phnum);
+
+void shadowhook_proxy_android_linker_soinfo_call_constructors(void *soinfo);
+void shadowhook_proxy_android_linker_soinfo_call_destructors(void *soinfo);

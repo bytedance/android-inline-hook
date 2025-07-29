@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@ public class SysTest {
     private static int initErrno = 200; // uninit
     private static final String libName = "shadowhooksystest";
 
-    public static int init(boolean sharedMode, boolean debuggable, boolean recordable) {
+    public static int init(ShadowHook.Mode mode, boolean debuggable, boolean recordable) {
         if (inited) {
             return initErrno;
         }
@@ -39,7 +39,7 @@ public class SysTest {
 
         // init shadowhook
         initErrno = ShadowHook.init(new ShadowHook.ConfigBuilder()
-                .setMode(sharedMode ? ShadowHook.Mode.SHARED : ShadowHook.Mode.UNIQUE)
+                .setMode(mode)
                 .setDebuggable(debuggable)
                 .setRecordable(recordable)
                 .build());
@@ -75,6 +75,22 @@ public class SysTest {
         return nativeUnhook();
     }
 
+    public static int intercept() {
+        if (initErrno != 0) {
+            return initErrno;
+        }
+
+        return nativeIntercept();
+    }
+
+    public static int unintercept() {
+        if (initErrno != 0) {
+            return initErrno;
+        }
+
+        return nativeUnintercept();
+    }
+
     public static int run() {
         if (initErrno != 0) {
             return initErrno;
@@ -85,5 +101,7 @@ public class SysTest {
 
     public static native int nativeHook();
     public static native int nativeUnhook();
+    public static native int nativeIntercept();
+    public static native int nativeUnintercept();
     public static native int nativeRun();
 }

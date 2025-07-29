@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -33,4 +33,6 @@ size_t sh_t32_rewrite(uint16_t *buf, uint16_t high_inst, uint16_t low_inst, uint
                       sh_txx_rewrite_info_t *rinfo);
 
 size_t sh_t32_absolute_jump(uint16_t *buf, bool is_align4, uintptr_t addr);
+size_t sh_t32_restore_ip(uint16_t *buf);
+
 size_t sh_t32_relative_jump(uint16_t *buf, uintptr_t addr, uintptr_t pc);

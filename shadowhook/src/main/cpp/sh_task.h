@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,12 +31,24 @@ typedef struct sh_task sh_task_t;
 
 int sh_task_init(void);
 
-sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                         bool ignore_symbol_check, uintptr_t caller_addr);
-sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,
-                                      uintptr_t *orig_addr, shadowhook_hooked_t hooked, void *hooked_arg,
-                                      uintptr_t caller_addr);
+sh_task_t *sh_task_create_hook_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
+                                              uint32_t flags, bool is_sym_addr, bool is_proc_start,
+                                              uintptr_t caller_addr, char *record_lib_name,
+                                              char *record_sym_name);
+sh_task_t *sh_task_create_hook_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,
+                                           uintptr_t *orig_addr, uint32_t flags, shadowhook_hooked_t hooked,
+                                           void *hooked_arg, uintptr_t caller_addr);
+
+sh_task_t *sh_task_create_intercept_by_target_addr(uintptr_t target_addr, shadowhook_interceptor_t pre,
+                                                   void *data, uint32_t flags, bool is_sym_addr,
+                                                   bool is_proc_start, uintptr_t caller_addr,
+                                                   char *record_lib_name, char *record_sym_name);
+sh_task_t *sh_task_create_intercept_by_sym_name(const char *lib_name, const char *sym_name,
+                                                shadowhook_interceptor_t pre, void *data, uint32_t flags,
+                                                shadowhook_intercepted_t intercepted, void *intercepted_arg,
+                                                uintptr_t caller_addr);
+
 void sh_task_destroy(sh_task_t *self);
 
-int sh_task_hook(sh_task_t *self);
-int sh_task_unhook(sh_task_t *self, uintptr_t caller_addr);
+int sh_task_do(sh_task_t *self);
+int sh_task_undo(sh_task_t *self, uintptr_t caller_addr);

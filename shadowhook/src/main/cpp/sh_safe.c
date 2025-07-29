@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +36,8 @@
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #pragma clang diagnostic ignored "-Wpacked"
 #pragma clang diagnostic ignored "-Wshorten-64-to-32"
+// #pragma clang diagnostic ignored "-Wreserved-identifier"
+#pragma clang diagnostic ignored "-Wpadded"
 #include "linux_syscall_support.h"
 #pragma clang diagnostic pop
 
@@ -78,27 +80,27 @@ end:
   return r;
 }
 
-uintptr_t *sh_safe_get_orig_addr_addr(uintptr_t target_addr) {
+void sh_safe_set_orig_addr(uintptr_t target_addr, uintptr_t orig_addr) {
   for (size_t i = 0; i < SH_SAFE_IDX_SZ; i++) {
-    if (sh_safe_addrs[i].target_addr == target_addr) {
-      return &sh_safe_addrs[i].orig_addr;
+    if (__predict_false(sh_safe_addrs[i].target_addr == target_addr)) {
+      __atomic_store_n(&sh_safe_addrs[i].orig_addr, orig_addr, __ATOMIC_SEQ_CST);
+      break;
     }
   }
-  return NULL;
 }
 
 static uintptr_t sh_safe_get_orig_addr(size_t idx) {
   sh_safe_addr_t *addr = &sh_safe_addrs[idx];
-  uintptr_t orig_addr = __atomic_load_n(&addr->orig_addr, __ATOMIC_ACQUIRE);
+  uintptr_t orig_addr = __atomic_load_n(&addr->orig_addr, __ATOMIC_SEQ_CST);
   return 0 != orig_addr ? orig_addr : addr->target_addr;
 }
 
-void *sh_safe_pthread_getspecific(pthread_key_t key) {
+__attribute__((always_inline)) void *sh_safe_pthread_getspecific(pthread_key_t key) {
   uintptr_t addr = sh_safe_get_orig_addr(SH_SAFE_IDX_PTHREAD_GETSPECIFIC);
   return ((void *(*)(pthread_key_t))addr)(key);
 }
 
-int sh_safe_pthread_setspecific(pthread_key_t key, const void *value) {
+__attribute__((always_inline)) int sh_safe_pthread_setspecific(pthread_key_t key, const void *value) {
   if (sh_safe_api_level >= __ANDROID_API_M__) {
     uintptr_t addr = sh_safe_get_orig_addr(SH_SAFE_IDX_PTHREAD_SETSPECIFIC);
     return ((int (*)(pthread_key_t, const void *))addr)(key, value);
@@ -120,20 +122,21 @@ int sh_safe_pthread_setspecific(pthread_key_t key, const void *value) {
   }
 }
 
-void sh_safe_abort(void) {
+__attribute__((always_inline)) void sh_safe_abort(void) {
   uintptr_t addr = sh_safe_get_orig_addr(SH_SAFE_IDX_ABORT);
   ((void (*)(void))addr)();
 }
 
-void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+__attribute__((always_inline)) void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                                                  off_t offset) {
   return sys_mmap(addr, length, prot, flags, fd, offset);
 }
 
-int sh_safe_munmap(void *addr, size_t size) {
+__attribute__((always_inline)) int sh_safe_munmap(void *addr, size_t size) {
   return sys_munmap(addr, size);
 }
 
-int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4,
-                  unsigned long arg5) {
+__attribute__((always_inline)) int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3,
+                                                 unsigned long arg4, unsigned long arg5) {
   return sys_prctl(option, arg2, arg3, arg4, arg5);
 }

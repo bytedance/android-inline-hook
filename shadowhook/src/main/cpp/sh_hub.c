@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,13 +40,11 @@
 #include "shadowhook.h"
 #include "tree.h"
 
-#define SH_HUB_TRAMPO_PAGE_NAME "shadowhook-hub-trampo"
-#define SH_HUB_TRAMPO_DELAY_SEC 5
-#define SH_HUB_STACK_NAME       "shadowhook-hub-stack"
-#define SH_HUB_STACK_SIZE       4096  // 4K is enough
-#define SH_HUB_STACK_FRAME_MAX  127   // keep sizeof(sh_hub_stack_t) < 4K
-#define SH_HUB_THREAD_MAX       1024
-#define SH_HUB_DELAY_SEC        10
+#define SH_HUB_TRAMPO_ANON_PAGE_NAME "shadowhook-hub-trampo"
+#define SH_HUB_STACK_ANON_PAGE_NAME  "shadowhook-hub-stack"
+#define SH_HUB_STACK_SIZE            4096  // 4K is enough
+#define SH_HUB_STACK_FRAME_MAX       16    // keep sizeof(sh_hub_stack_t) < 4K
+#define SH_HUB_THREAD_MAX            1024
 
 #define SH_HUB_FRAME_FLAG_NONE            ((uintptr_t)0)
 #define SH_HUB_FRAME_FLAG_ALLOW_REENTRANT ((uintptr_t)(1 << 0))
@@ -81,19 +79,14 @@ typedef struct {
 // hub for each target-address
 struct sh_hub {
   sh_hub_proxy_list_t proxies;
-  pthread_mutex_t proxies_lock;
+  size_t proxies_size;
   uintptr_t orig_addr;
   uintptr_t trampo;
-  time_t destroy_ts;
   LIST_ENTRY(sh_hub, ) link;
 };
 
 // hub list for delayed-destroy staging
 typedef LIST_HEAD(sh_hub_list, sh_hub, ) sh_hub_list_t;
-
-// global data for hub delayed-destroy staging
-static sh_hub_list_t sh_hub_delayed_destroy;
-static pthread_mutex_t sh_hub_delayed_destroy_lock;
 
 // global data for trampo
 static sh_trampo_mgr_t sh_hub_trampo_mgr;
@@ -104,34 +97,41 @@ static sh_hub_stack_t *sh_hub_stack_cache;
 static uint8_t *sh_hub_stack_cache_used;
 static pthread_key_t sh_hub_stack_reserved_tls_key;
 
+// global data for trampoline template
+static uintptr_t sh_hub_trampo_code_start;
+static size_t sh_hub_trampo_code_size;
+static size_t sh_hub_trampo_data_size;
+
 // hub trampoline template
 extern void *sh_hub_trampo_template_data __attribute__((visibility("hidden")));
 __attribute__((naked)) static void sh_hub_trampo_template(void) {
 #if defined(__arm__)
   __asm__(
       // Save parameter registers, LR
-      "push  { r0 - r3, lr }     \n"
+      "push  {r0 - r3, lr}       \n"
+      "vpush {d0 - d7}           \n"
 
       // Call sh_hub_push_stack()
-      "ldr   r0, hub_ptr         \n"
+      "ldr   r0, .L_hub_ptr      \n"
       "mov   r1, lr              \n"
-      "ldr   ip, push_stack      \n"
+      "ldr   ip, .L_push_stack   \n"
       "blx   ip                  \n"
 
       // Save the hook function's address to IP register
       "mov   ip, r0              \n"
 
       // Restore parameter registers, LR
-      "pop   { r0 - r3, lr }     \n"
+      "vpop  {d0 - d7}           \n"
+      "pop   {r0 - r3, lr}       \n"
 
       // Call hook function
       "bx    ip                  \n"
 
       "sh_hub_trampo_template_data:"
       ".global sh_hub_trampo_template_data;"
-      "push_stack:"
+      ".L_push_stack:"
       ".word 0;"
-      "hub_ptr:"
+      ".L_hub_ptr:"
       ".word 0;");
 #elif defined(__aarch64__)
   __asm__(
@@ -147,9 +147,9 @@ __attribute__((naked)) static void sh_hub_trampo_template(void) {
       "stp   q6, q7, [sp, #0xb0]      \n"
 
       // Call sh_hub_push_stack()
-      "ldr   x0, hub_ptr              \n"
+      "ldr   x0, .L_hub_ptr           \n"
       "mov   x1, lr                   \n"
-      "ldr   x16, push_stack          \n"
+      "ldr   x16, .L_push_stack       \n"
       "blr   x16                      \n"
 
       // Save the hook function's address to IP register
@@ -171,22 +171,45 @@ __attribute__((naked)) static void sh_hub_trampo_template(void) {
 
       "sh_hub_trampo_template_data:"
       ".global sh_hub_trampo_template_data;"
-      "push_stack:"
+      ".L_push_stack:"
       ".quad 0;"
-      "hub_ptr:"
+      ".L_hub_ptr:"
       ".quad 0;");
 #endif
 }
 
-static void *sh_hub_trampo_template_start(void) {
-#if defined(__arm__) && defined(__thumb__)
-  return (void *)((uintptr_t)&sh_hub_trampo_template - 1);
-#else
-  return (void *)&sh_hub_trampo_template;
-#endif
-}
+#if defined(__arm__)
+extern void *sh_hub_trampo_template_data_ancient __attribute__((visibility("hidden")));
+__attribute__((naked)) static void sh_hub_trampo_template_ancient(void) {
+  __asm__(
+      // Save parameter registers, LR
+      "push  { r0 - r3, lr }     \n"
 
-static sh_hub_stack_t *sh_hub_stack_create(void) {
+      // Call sh_hub_push_stack()
+      "ldr   r0, .L_hub_ptr_ancient \n"
+      "mov   r1, lr              \n"
+      "ldr   ip, .L_push_stack_ancient \n"
+      "blx   ip                  \n"
+
+      // Save the hook function's address to IP register
+      "mov   ip, r0              \n"
+
+      // Restore parameter registers, LR
+      "pop   { r0 - r3, lr }     \n"
+
+      // Call hook function
+      "bx    ip                  \n"
+
+      "sh_hub_trampo_template_data_ancient:"
+      ".global sh_hub_trampo_template_data_ancient;"
+      ".L_push_stack_ancient:"
+      ".word 0;"
+      ".L_hub_ptr_ancient:"
+      ".word 0;");
+}
+#endif
+
+__attribute__((always_inline)) static sh_hub_stack_t *sh_hub_stack_create(void) {
   // get stack from global cache
   for (size_t i = 0; i < SH_HUB_THREAD_MAX; i++) {
     uint8_t *used = &(sh_hub_stack_cache_used[i]);
@@ -205,9 +228,9 @@ static sh_hub_stack_t *sh_hub_stack_create(void) {
   int prot = PROT_READ | PROT_WRITE;
   int flags = MAP_PRIVATE | MAP_ANONYMOUS;
   void *buf = sh_safe_mmap(NULL, SH_HUB_STACK_SIZE, prot, flags, -1, 0);
-  if (MAP_FAILED == buf) return NULL;  // failed
+  if (__predict_false(MAP_FAILED == buf)) return NULL;  // failed
   sh_safe_prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, (unsigned long)buf, SH_HUB_STACK_SIZE,
-                (unsigned long)SH_HUB_STACK_NAME);
+                (unsigned long)SH_HUB_STACK_ANON_PAGE_NAME);
   sh_hub_stack_t *stack = (sh_hub_stack_t *)buf;
   stack->frames_cnt = 0;
   return stack;  // OK
@@ -231,36 +254,60 @@ static void sh_hub_stack_destroy(void *buf) {
   sh_safe_pthread_setspecific(sh_hub_stack_reserved_tls_key, (const void *)1);
 }
 
-int sh_hub_init(void) {
-  LIST_INIT(&sh_hub_delayed_destroy);
-  pthread_mutex_init(&sh_hub_delayed_destroy_lock, NULL);
+static int sh_hub_init(void) {
+  static int init_r = -1;
+  if (__predict_true(-1 != init_r)) return init_r;
 
   // init TLS key
-  if (__predict_false(0 != pthread_key_create(&sh_hub_stack_tls_key, sh_hub_stack_destroy))) return -1;
-  if (__predict_false(0 != pthread_key_create(&sh_hub_stack_reserved_tls_key, NULL))) return -1;
+  if (__predict_false(0 != pthread_key_create(&sh_hub_stack_tls_key, sh_hub_stack_destroy))) goto err;
+  if (__predict_false(0 != pthread_key_create(&sh_hub_stack_reserved_tls_key, NULL))) goto err;
 
   // init hub's stack cache
   if (__predict_false(NULL == (sh_hub_stack_cache = malloc(SH_HUB_THREAD_MAX * sizeof(sh_hub_stack_t)))))
-    return -1;
+    goto err;
   if (__predict_false(NULL == (sh_hub_stack_cache_used = calloc(SH_HUB_THREAD_MAX, sizeof(uint8_t)))))
-    return -1;
+    goto err;
+
+  // init trampo start, code size, data size
+  uintptr_t data_start;
+#if defined(__arm__)
+  size_t cpu_feat = sh_util_get_arm_cpu_features();
+  if ((cpu_feat & SH_UTIL_ARM_CPU_FEATURE_VFPV3D16) || (cpu_feat & SH_UTIL_ARM_CPU_FEATURE_VFPV3D32)) {
+    sh_hub_trampo_code_start = (uintptr_t)&sh_hub_trampo_template;
+    data_start = (uintptr_t)(&sh_hub_trampo_template_data);
+  } else {
+    sh_hub_trampo_code_start = (uintptr_t)&sh_hub_trampo_template_ancient;
+    data_start = (uintptr_t)(&sh_hub_trampo_template_data_ancient);
+  }
+#if defined(__thumb__)
+  sh_hub_trampo_code_start = SH_UTIL_CLEAR_BIT0(sh_hub_trampo_code_start);
+#endif
+#elif defined(__aarch64__)
+  sh_hub_trampo_code_start = (uintptr_t)&sh_hub_trampo_template;
+  data_start = (uintptr_t)(&sh_hub_trampo_template_data);
+#endif
+  sh_hub_trampo_code_size = data_start - sh_hub_trampo_code_start;
+  sh_hub_trampo_data_size = sizeof(void *) + sizeof(void *);
+  uintptr_t trampo_size = sh_hub_trampo_code_size + sh_hub_trampo_data_size;
 
   // init hub's trampoline manager
-  size_t code_size = (uintptr_t)(&sh_hub_trampo_template_data) - (uintptr_t)(sh_hub_trampo_template_start());
-  size_t data_size = sizeof(void *) + sizeof(void *);
-  sh_trampo_init_mgr(&sh_hub_trampo_mgr, SH_HUB_TRAMPO_PAGE_NAME, code_size + data_size,
-                     SH_HUB_TRAMPO_DELAY_SEC);
+  sh_trampo_init_mgr(&sh_hub_trampo_mgr, SH_HUB_TRAMPO_ANON_PAGE_NAME, trampo_size, 0);
 
-  return 0;
+  init_r = 0;
+  return init_r;
+
+err:
+  init_r = SHADOWHOOK_ERRNO_INIT_HUB;
+  return init_r;
 }
 
 static void *sh_hub_push_stack(sh_hub_t *self, void *return_address) {
   sh_hub_stack_t *reserved_stack =
       (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_reserved_tls_key);
-  if (reserved_stack != NULL) goto end;
-  sh_hub_stack_t *stack = (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_tls_key);
+  if (__predict_false(reserved_stack != NULL)) goto end;
 
-  // create stack, only once
+  // get stack, create stack(only once)
+  sh_hub_stack_t *stack = (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_tls_key);
   if (__predict_false(NULL == stack)) {
     if (__predict_false(NULL == (stack = sh_hub_stack_create()))) goto end;
     sh_safe_pthread_setspecific(sh_hub_stack_tls_key, (void *)stack);
@@ -270,7 +317,8 @@ static void *sh_hub_push_stack(sh_hub_t *self, void *return_address) {
   bool recursive = false;
   for (size_t i = stack->frames_cnt; i > 0; i--) {
     sh_hub_frame_t *frame = &stack->frames[i - 1];
-    if (0 == (frame->flags & SH_HUB_FRAME_FLAG_ALLOW_REENTRANT) && (frame->orig_addr == self->orig_addr)) {
+    if (__predict_false(0 == (frame->flags & SH_HUB_FRAME_FLAG_ALLOW_REENTRANT)) &&
+        __predict_false(frame->orig_addr == self->orig_addr)) {
       // recursive call found
       recursive = true;
       break;
@@ -279,12 +327,12 @@ static void *sh_hub_push_stack(sh_hub_t *self, void *return_address) {
 
   // find and return the first enabled proxy's function in the proxy-list
   // (does not include the original function)
-  if (!recursive) {
+  if (__predict_true(!recursive)) {
     sh_hub_proxy_t *proxy;
     SLIST_FOREACH(proxy, &self->proxies, link) {
-      if (proxy->enabled) {
+      if (__predict_true(proxy->enabled)) {
         // push a new frame for the current proxy
-        if (stack->frames_cnt >= SH_HUB_STACK_FRAME_MAX) goto end;
+        if (__predict_false(stack->frames_cnt >= SH_HUB_STACK_FRAME_MAX)) goto end;
         stack->frames_cnt++;
         SH_LOG_DEBUG("hub: frames_cnt++ = %zu", stack->frames_cnt);
         sh_hub_frame_t *frame = &stack->frames[stack->frames_cnt - 1];
@@ -309,67 +357,76 @@ end:
 
 void sh_hub_pop_stack(void *return_address) {
   sh_hub_stack_t *stack = (sh_hub_stack_t *)sh_safe_pthread_getspecific(sh_hub_stack_tls_key);
-  if (0 == stack->frames_cnt) return;
+  if (__predict_false(0 == stack->frames_cnt)) return;
   sh_hub_frame_t *frame = &stack->frames[stack->frames_cnt - 1];
 
   // only the first proxy will actually execute pop-stack()
-  if (frame->return_address == return_address) {
+  if (__predict_true(frame->return_address == return_address)) {
     stack->frames_cnt--;
     SH_LOG_DEBUG("hub: frames_cnt-- = %zu", stack->frames_cnt);
   }
 }
 
-sh_hub_t *sh_hub_create(uintptr_t *trampo) {
-  size_t code_size = (uintptr_t)(&sh_hub_trampo_template_data) - (uintptr_t)(sh_hub_trampo_template_start());
-  size_t data_size = sizeof(void *) + sizeof(void *);
+int sh_hub_create(sh_hub_t **self) {
+  int r = sh_hub_init();
+  if (0 != r) return r;
 
-  sh_hub_t *self = malloc(sizeof(sh_hub_t));
-  if (NULL == self) return NULL;
-  SLIST_INIT(&self->proxies);
-  pthread_mutex_init(&self->proxies_lock, NULL);
-  self->orig_addr = 0;
-  self->destroy_ts = 0;
+  sh_hub_t *obj = malloc(sizeof(sh_hub_t));
+  if (NULL == obj) goto err;
+  SLIST_INIT(&obj->proxies);
+  obj->proxies_size = 0;
+  obj->orig_addr = 0;
 
   // alloc memory for trampoline
-  if (0 == (self->trampo = sh_trampo_alloc(&sh_hub_trampo_mgr))) {
-    free(self);
-    return NULL;
+  if (0 == (obj->trampo = sh_trampo_alloc(&sh_hub_trampo_mgr))) {
+    free(obj);
+    goto err;
   }
 
   // fill in code
   SH_SIG_TRY(SIGSEGV, SIGBUS) {
-    memcpy((void *)self->trampo, sh_hub_trampo_template_start(), code_size);
+    memcpy((void *)obj->trampo, (void *)sh_hub_trampo_code_start, sh_hub_trampo_code_size);
   }
   SH_SIG_CATCH() {
-    sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
-    free(self);
+    sh_trampo_free(&sh_hub_trampo_mgr, obj->trampo);
+    free(obj);
     SH_LOG_WARN("hub: fill in code crashed");
-    return NULL;
+    goto err;
   }
   SH_SIG_EXIT
 
   // fill in data
-  void **data = (void **)(self->trampo + code_size);
+  void **data = (void **)(obj->trampo + sh_hub_trampo_code_size);
   *data++ = (void *)sh_hub_push_stack;
-  *data = (void *)self;
+  *data = (void *)obj;
 
   // clear CPU cache
-  sh_util_clear_cache(self->trampo, code_size + data_size);
+  sh_util_clear_cache(obj->trampo, sh_hub_trampo_code_size + sh_hub_trampo_data_size);
 
-#if defined(__arm__) && defined(__thumb__)
-  *trampo = self->trampo + 1;
-#else
-  *trampo = self->trampo;
-#endif
+  SH_LOG_INFO("hub: create trampo at %" PRIxPTR ", size %zu + %zu = %zu", obj->trampo,
+              sh_hub_trampo_code_size, sh_hub_trampo_data_size,
+              sh_hub_trampo_code_size + sh_hub_trampo_data_size);
+  *self = obj;
+  return 0;
 
-  SH_LOG_INFO("hub: create trampo at %" PRIxPTR ", size %zu + %zu = %zu", *trampo, code_size, data_size,
-              code_size + data_size);
-  return self;
+err:
+  *self = NULL;
+  return SHADOWHOOK_ERRNO_HUB_CREAT;
 }
 
-static void sh_hub_destroy_inner(sh_hub_t *self) {
-  pthread_mutex_destroy(&self->proxies_lock);
+uintptr_t sh_hub_get_trampo_addr(sh_hub_t *self) {
+#if defined(__arm__) && defined(__thumb__)
+  return self->trampo + 1;
+#else
+  return self->trampo;
+#endif
+}
 
+uintptr_t *sh_hub_get_orig_addr(sh_hub_t *self) {
+  return &self->orig_addr;
+}
+
+void sh_hub_destroy(sh_hub_t *self) {
   if (0 != self->trampo) sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
 
   while (!SLIST_EMPTY(&self->proxies)) {
@@ -381,109 +438,60 @@ static void sh_hub_destroy_inner(sh_hub_t *self) {
   free(self);
 }
 
-void sh_hub_destroy(sh_hub_t *self, bool with_delay) {
-  time_t now = sh_util_get_stable_timestamp();
-
-  if (!LIST_EMPTY(&sh_hub_delayed_destroy)) {
-    pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
-    sh_hub_t *hub, *hub_tmp;
-    LIST_FOREACH_SAFE(hub, &sh_hub_delayed_destroy, link, hub_tmp) {
-      if (now - hub->destroy_ts > SH_HUB_DELAY_SEC) {
-        LIST_REMOVE(hub, link);
-        sh_hub_destroy_inner(hub);
-      }
-    }
-    pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
+bool sh_hub_is_proxy_duplicated(sh_hub_t *self, uintptr_t proxy_func) {
+  sh_hub_proxy_t *proxy;
+  SLIST_FOREACH(proxy, &self->proxies, link) {
+    if (proxy->enabled && proxy->func == (void *)proxy_func) return true;
   }
-
-  if (with_delay) {
-    self->destroy_ts = now;
-    sh_trampo_free(&sh_hub_trampo_mgr, self->trampo);
-    self->trampo = 0;
-
-    pthread_mutex_lock(&sh_hub_delayed_destroy_lock);
-    LIST_INSERT_HEAD(&sh_hub_delayed_destroy, self, link);
-    pthread_mutex_unlock(&sh_hub_delayed_destroy_lock);
-  } else {
-    sh_hub_destroy_inner(self);
-  }
-}
-
-uintptr_t sh_hub_get_orig_addr(sh_hub_t *self) {
-  return self->orig_addr;
-}
-
-uintptr_t *sh_hub_get_orig_addr_addr(sh_hub_t *self) {
-  return &self->orig_addr;
+  return false;
 }
 
 int sh_hub_add_proxy(sh_hub_t *self, uintptr_t proxy_func) {
-  int r = SHADOWHOOK_ERRNO_OK;
-
-  pthread_mutex_lock(&self->proxies_lock);
-
-  // check repeated funcion
-  sh_hub_proxy_t *proxy;
-  SLIST_FOREACH(proxy, &self->proxies, link) {
-    if (proxy->enabled && proxy->func == (void *)proxy_func) {
-      r = SHADOWHOOK_ERRNO_HOOK_DUP;
-      goto end;
-    }
-  }
+  // check duplicated proxy function
+  if (sh_hub_is_proxy_duplicated(self, proxy_func)) return SHADOWHOOK_ERRNO_HOOK_HUB_DUP;
 
   // try to re-enable an exists item
+  sh_hub_proxy_t *proxy;
   SLIST_FOREACH(proxy, &self->proxies, link) {
     if (proxy->func == (void *)proxy_func) {
-      if (!proxy->enabled) __atomic_store_n((bool *)&proxy->enabled, true, __ATOMIC_SEQ_CST);
-
+      self->proxies_size++;
+      if (!proxy->enabled) __atomic_store_n((bool *)&proxy->enabled, true, __ATOMIC_RELEASE);
       SH_LOG_INFO("hub: add(re-enable) func %" PRIxPTR, proxy_func);
-      goto end;
+      return 0;
     }
   }
 
   // create new item
-  if (NULL == (proxy = malloc(sizeof(sh_hub_proxy_t)))) {
-    r = SHADOWHOOK_ERRNO_OOM;
-    goto end;
-  }
+  if (NULL == (proxy = malloc(sizeof(sh_hub_proxy_t)))) return SHADOWHOOK_ERRNO_OOM;
   proxy->func = (void *)proxy_func;
   proxy->enabled = true;
 
   // insert to the head of the proxy-list
   // equivalent to: SLIST_INSERT_HEAD(&self->proxies, proxy, link);
   // but: __ATOMIC_RELEASE ensures readers see only fully-constructed item
+  self->proxies_size++;
   SLIST_NEXT(proxy, link) = SLIST_FIRST(&self->proxies);
   __atomic_store_n((uintptr_t *)(&SLIST_FIRST(&self->proxies)), (uintptr_t)proxy, __ATOMIC_RELEASE);
   SH_LOG_INFO("hub: add(new) func %" PRIxPTR, proxy_func);
-
-end:
-  pthread_mutex_unlock(&self->proxies_lock);
-  return r;
+  return 0;
 }
 
-int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func, bool *have_enabled_proxy) {
-  *have_enabled_proxy = false;
-
-  pthread_mutex_lock(&self->proxies_lock);
-
+int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func) {
   sh_hub_proxy_t *proxy;
-  bool deleted = false;
   SLIST_FOREACH(proxy, &self->proxies, link) {
-    if (proxy->func == (void *)proxy_func) {
-      if (proxy->enabled) __atomic_store_n((bool *)&proxy->enabled, false, __ATOMIC_SEQ_CST);
-
-      deleted = true;
+    if (proxy->func == (void *)proxy_func && proxy->enabled) {
+      self->proxies_size--;
+      __atomic_store_n((bool *)&proxy->enabled, false, __ATOMIC_RELEASE);
       SH_LOG_INFO("hub: del func %" PRIxPTR, proxy_func);
+      return 0;
     }
-
-    if (proxy->enabled && !*have_enabled_proxy) *have_enabled_proxy = true;
-
-    if (deleted && *have_enabled_proxy) break;
   }
 
-  pthread_mutex_unlock(&self->proxies_lock);
+  return SHADOWHOOK_ERRNO_UNHOOK_NOTFOUND;
+}
 
-  return deleted ? 0 : -1;
+size_t sh_hub_get_proxy_count(sh_hub_t *self) {
+  return self->proxies_size;
 }
 
 static sh_hub_frame_t *sh_hub_get_current_frame(void *return_address) {
@@ -514,14 +522,16 @@ void *sh_hub_get_prev_func(void *func) {
   if (0 == stack->frames_cnt) sh_safe_abort();  // called in a non-hook status?
   sh_hub_frame_t *frame = &stack->frames[stack->frames_cnt - 1];
 
-  // find and return the next enabled hook-function in the hook-chain
+  // find and return the next enabled proxy in the proxy-list
   bool found = false;
   sh_hub_proxy_t *proxy;
   SLIST_FOREACH(proxy, &(frame->proxies), link) {
     if (!found) {
       if (proxy->func == func) found = true;
     } else {
-      if (proxy->enabled) break;
+      if (proxy->enabled) {
+        break;
+      }
     }
   }
   if (NULL != proxy) {

@@ -2,6 +2,6 @@
 
 ## Manual
 
-[ShadowHook Manual - English](manual.md)
+[shadowhook Manual - English](manual.md)
 
-[ShadowHook 手册 - 简体中文](manual.zh-CN.md)
+[shadowhook 手册 - 简体中文](manual.zh-CN.md)

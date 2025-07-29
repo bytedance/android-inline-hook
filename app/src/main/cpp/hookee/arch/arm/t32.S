@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -55,8 +55,9 @@ END(test_t32_b_t4)
 
 // B T4 fixaddr
 ENTRY_GLOBAL_THUMB(test_t32_b_t4_fixaddr)
-    b.w      .t32_b_t4_fixaddr_short_jump
-.t32_b_t4_fixaddr_short_jump:
+    b.w      .L_t32_b_t4_fixaddr_next
+    bx       lr
+.L_t32_b_t4_fixaddr_next:
     b.w      test_t32_helper_global
     bx       lr
 END(test_t32_b_t4_fixaddr)
@@ -86,10 +87,10 @@ ENTRY_GLOBAL_THUMB(test_t32_adr_t2)
     nop
     nop
     nop
-    adr      lr, .t32_adr_t2_ret
+    adr      lr, .L_t32_adr_t2_ret
     add      lr, lr, #1
     mov      pc, r8
-.t32_adr_t2_ret:
+.L_t32_adr_t2_ret:
     pop      {r8, pc}
 END(test_t32_adr_t2)
 
@@ -100,10 +101,10 @@ ENTRY_GLOBAL_THUMB(test_t32_adr_t3)
     nop
     nop
     nop
-    adr      lr, .t32_adr_t3_ret
+    adr      lr, .L_t32_adr_t3_ret
     add      lr, lr, #1
     mov      pc, r8
-.t32_adr_t3_ret:
+.L_t32_adr_t3_ret:
     pop      {r8, pc}
 END(test_t32_adr_t3)
 
@@ -124,10 +125,10 @@ END(test_t32_ldr_lit_t2_case1)
 
 // LDR LIT T2 case2
 ENTRY_GLOBAL_THUMB_BOUND(test_t32_ldr_lit_t2_case2)
-    ldr.w    pc, .test_t32_helper_global_ptr
+    ldr.w    pc, .L_test_t32_helper_global_ptr
     nop
     nop
-.test_t32_helper_global_ptr:
+.L_test_t32_helper_global_ptr:
     .long    0
     bx       lr
 END(test_t32_ldr_lit_t2_case2)
@@ -155,21 +156,21 @@ ENTRY_GLOBAL_THUMB_BOUND(test_t32_tbb_t1)
     push     {r0}
     movs     r0, #1
     tbb      [pc, r0]
-.tbb_branchtable:
-    .byte    ((.tbb_case0 - .tbb_branchtable) / 2)
-    .byte    ((.tbb_case1 - .tbb_branchtable) / 2)
-    .byte    ((.tbb_case2 - .tbb_branchtable) / 2)
-    .byte    ((.tbb_case3 - .tbb_branchtable) / 2)
-.tbb_case0:
+.L_tbb_branchtable:
+    .byte    ((.L_tbb_case0 - .L_tbb_branchtable) / 2)
+    .byte    ((.L_tbb_case1 - .L_tbb_branchtable) / 2)
+    .byte    ((.L_tbb_case2 - .L_tbb_branchtable) / 2)
+    .byte    ((.L_tbb_case3 - .L_tbb_branchtable) / 2)
+.L_tbb_case0:
     pop      {r0}
     bx       lr
-.tbb_case1:
+.L_tbb_case1:
     pop      {r0}
     b        test_t32_helper_global
-.tbb_case2:
+.L_tbb_case2:
     pop      {r0}
     bx       lr
-.tbb_case3:
+.L_tbb_case3:
     pop      {r0}
     bx       lr
 END(test_t32_tbb_t1)
@@ -179,21 +180,21 @@ ENTRY_GLOBAL_THUMB_BOUND(test_t32_tbh_t1)
     push     {r0}
     movs     r0, #1
     tbh      [pc, r0, lsl #1]
-.tbh_branchtable:
-    .short   ((.tbh_case0 - .tbh_branchtable) / 2)
-    .short   ((.tbh_case1 - .tbh_branchtable) / 2)
-    .short   ((.tbh_case2 - .tbh_branchtable) / 2)
-    .short   ((.tbh_case3 - .tbh_branchtable) / 2)
-.tbh_case0:
+.L_tbh_branchtable:
+    .short   ((.L_tbh_case0 - .L_tbh_branchtable) / 2)
+    .short   ((.L_tbh_case1 - .L_tbh_branchtable) / 2)
+    .short   ((.L_tbh_case2 - .L_tbh_branchtable) / 2)
+    .short   ((.L_tbh_case3 - .L_tbh_branchtable) / 2)
+.L_tbh_case0:
     pop      {r0}
     bx       lr
-.tbh_case1:
+.L_tbh_case1:
     pop      {r0}
     b        test_t32_helper_global
-.tbh_case2:
+.L_tbh_case2:
     pop      {r0}
     bx       lr
-.tbh_case3:
+.L_tbh_case3:
     pop      {r0}
     bx       lr
 END(test_t32_tbh_t1)
@@ -237,3 +238,22 @@ ENTRY_HIDDEN_THUMB(test_t32_helper_hidden_tail)
     add      r0, r0, r1
     bx       lr
 END(test_t32_helper_hidden_tail)
+
+
+ENTRY_GLOBAL_THUMB(test_t32_instr)
+    nop.w
+    nop.w
+    add.w      r0, r0, r1
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    nop.w
+    bx       lr
+END(test_t32_instr)

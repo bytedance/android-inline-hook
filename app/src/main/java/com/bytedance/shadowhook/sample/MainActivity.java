@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,9 @@ package com.bytedance.shadowhook.sample;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -40,13 +43,17 @@ import java.io.FileReader;
 public class MainActivity extends AppCompatActivity {
 
     private static final String tag = "shadowhook_tag";
-    private boolean hookee2Loaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
 
         findViewById(R.id.unitTestHookSymAddr).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -63,6 +70,48 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.unitTestUnhook).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 NativeHandler.nativeUnhook();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymAddr).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymAddr();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymAddrReadFpsimd).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymAddrReadFpsimd();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymAddrReadWriteFpsimd).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymAddrReadWriteFpsimd();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymName).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymName();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymNameReadFpsimd).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymNameReadFpsimd();
+            }
+        });
+
+        findViewById(R.id.unitTestInterceptSymNameReadWriteFpsimd).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeInterceptSymNameReadWriteFpsimd();
+            }
+        });
+
+        findViewById(R.id.unitTestUnintercept).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeUnintercept();
             }
         });
 
@@ -84,6 +133,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        findViewById(R.id.unitTestBenchmark).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                NativeHandler.nativeBenchmark();
+            }
+        });
+
         findViewById(R.id.systemtestTestHook).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 SysTest.hook();
@@ -93,6 +148,18 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.systemtestTestUnhook).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 SysTest.unhook();
+            }
+        });
+
+        findViewById(R.id.systemtestTestIntercept).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                SysTest.intercept();
+            }
+        });
+
+        findViewById(R.id.systemtestTestUnintercept).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                SysTest.unintercept();
             }
         });
 

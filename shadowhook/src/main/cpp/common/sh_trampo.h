@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,13 +38,13 @@ typedef SLIST_HEAD(sh_trampo_page_list, sh_trampo_page, ) sh_trampo_page_list_t;
 typedef struct sh_trampo_mgr {
   sh_trampo_page_list_t pages;
   pthread_mutex_t pages_lock;
-  const char *page_name;
+  const char *anon_page_name;
   size_t trampo_size;
   time_t delay_sec;  // must be greater than 0
 } sh_trampo_mgr_t;
 
-void sh_trampo_init_mgr(sh_trampo_mgr_t *mgr, const char *page_name, size_t trampo_size, time_t delay_sec);
+void sh_trampo_init_mgr(sh_trampo_mgr_t *mgr, const char *anon_page_name, size_t trampo_size,
+                        time_t delay_sec);
 uintptr_t sh_trampo_alloc(sh_trampo_mgr_t *mgr);
-uintptr_t sh_trampo_alloc_near(sh_trampo_mgr_t *mgr, uintptr_t hint, uintptr_t low_offset,
-                               uintptr_t high_offset);
+uintptr_t sh_trampo_alloc_between(sh_trampo_mgr_t *mgr, uintptr_t range_low, uintptr_t range_high);
 void sh_trampo_free(sh_trampo_mgr_t *mgr, uintptr_t trampo);

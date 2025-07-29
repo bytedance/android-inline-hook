@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024 HexHacking Team
+// Copyright (c) 2020-2025 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -161,17 +161,14 @@ static int xdl_linker_get_caller_addr_cb(struct dl_phdr_info *info, size_t size,
     xdl_linker_caller_t *caller = &xdl_linker_callers[i];
     for (size_t j = 0; j < caller->matches_cursor; j++) {
       xdl_linker_match_t *match = &caller->matches[j];
-      switch (match->type) {
-        case MATCH_PREFIX:
-          if (xdl_util_starts_with(info->dlpi_name, match->value)) {
-            xdl_linker_save_caller_addr(info, caller, j);
-          }
-          break;
-        case MATCH_SUFFIX:
-          if (xdl_util_ends_with(info->dlpi_name, match->value)) {
-            xdl_linker_save_caller_addr(info, caller, j);
-          }
-          break;
+      if (MATCH_PREFIX == match->type) {
+        if (xdl_util_starts_with(info->dlpi_name, match->value)) {
+          xdl_linker_save_caller_addr(info, caller, j);
+        }
+      } else if (MATCH_SUFFIX == match->type) {
+        if (xdl_util_ends_with(info->dlpi_name, match->value)) {
+          xdl_linker_save_caller_addr(info, caller, j);
+        }
       }
     }
     if (NULL == caller->addr || 0 != caller->matches_cursor) ret = 0;  // continue

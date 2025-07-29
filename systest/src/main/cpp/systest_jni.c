@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,20 @@ static int systest_jni_unhook(JNIEnv *env, jobject thiz) {
   return systest_unhook();
 }
 
+static int systest_jni_intercept(JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  return systest_intercept();
+}
+
+static int systest_jni_unintercept(JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  return systest_unintercept();
+}
+
 static int systest_jni_run(JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -67,6 +81,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
   JNINativeMethod m[] = {{"nativeHook", "()I", (void *)systest_jni_hook},
                          {"nativeUnhook", "()I", (void *)systest_jni_unhook},
+                         {"nativeIntercept", "()I", (void *)systest_jni_intercept},
+                         {"nativeUnintercept", "()I", (void *)systest_jni_unintercept},
                          {"nativeRun", "()I", (void *)systest_jni_run}};
   if (0 != (*env)->RegisterNatives(env, cls, m, sizeof(m) / sizeof(m[0]))) return JNI_ERR;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 #include <sh_util.h>
 #include <stdint.h>
 
+#include "sh_config.h"
 #include "sh_log.h"
 
 // https://developer.arm.com/documentation/ddi0487/latest
@@ -126,12 +127,34 @@ static uintptr_t sh_a64_fix_addr(uintptr_t addr, sh_a64_rewrite_info_t *rinfo) {
       cursor_addr += 4;
       offset += rinfo->inst_lens[i];
     }
-    uintptr_t fixed_addr = (uintptr_t)rinfo->buf + offset;
+    uintptr_t fixed_addr = (uintptr_t)rinfo->buf + rinfo->inst_prolog_len + offset;
     SH_LOG_INFO("a64 rewrite: fix addr %" PRIxPTR " -> %" PRIxPTR, addr, fixed_addr);
     return fixed_addr;
   }
 
   return addr;
+}
+
+// B: [-128M, +128M - 4]
+#define SH_A64_B_OFFSET_LOW  (134217728)
+#define SH_A64_B_OFFSET_HIGH (134217724)
+
+static int sh_a64_build_island_rewrite(uintptr_t addr, sh_a64_rewrite_info_t *rinfo) {
+  // alloc island-rewrite (jump from "island-rewrite->addr + 4" to "addr")
+  uintptr_t island_enter_range_low =
+      addr > (SH_A64_B_OFFSET_HIGH + 4) ? (addr - SH_A64_B_OFFSET_HIGH - 4) : 0;
+  uintptr_t island_enter_range_high =
+      (UINTPTR_MAX - addr > SH_A64_B_OFFSET_LOW - 4) ? (addr + SH_A64_B_OFFSET_LOW - 4) : UINTPTR_MAX;
+  sh_island_alloc(rinfo->island_rewrite, 8, island_enter_range_low, island_enter_range_high, addr,
+                  rinfo->addr_info);
+  if (0 == rinfo->island_rewrite->addr) return SHADOWHOOK_ERRNO_HOOK_ISLAND_REWRITE;
+
+  // relative jump to "pc + 4" in island-enter
+  sh_a64_restore_ip((uint32_t *)rinfo->island_rewrite->addr);
+  sh_a64_relative_jump((uint32_t *)(rinfo->island_rewrite->addr + 4), addr, rinfo->island_rewrite->addr + 4);
+  sh_util_clear_cache(rinfo->island_rewrite->addr, rinfo->island_rewrite->size);
+  SH_LOG_INFO("a64 rewrite: branch island %" PRIxPTR " -> %" PRIxPTR, rinfo->island_rewrite->addr + 4, addr);
+  return 0;
 }
 
 static size_t sh_a64_rewrite_b(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_type_t type,
@@ -147,20 +170,27 @@ static size_t sh_a64_rewrite_b(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a6
   uint64_t addr = pc + imm64;
   addr = sh_a64_fix_addr(addr, rinfo);
 
+  bool use_branch_island = (0 != rinfo->island_rewrite && (type == B || type == B_COND));
+  if (use_branch_island) {
+    if (0 != sh_a64_build_island_rewrite(addr, rinfo)) return 0;  // failed
+    addr = rinfo->island_rewrite->addr;
+  }
+
   size_t idx = 0;
   if (type == B_COND) {
-    buf[idx++] = (inst & 0xFF00001F) | 0x40u;  // B.<cond> #8
-    buf[idx++] = 0x14000006;                   // B #24
+    buf[idx++] = (inst & 0xFF00001F) | 0x40u;                  // B.<cond> #8
+    buf[idx++] = use_branch_island ? 0x14000007 : 0x14000006;  // B #28 _or_ B #24
   }
-  buf[idx++] = 0x58000051;  // LDR X17, #8
-  buf[idx++] = 0x14000003;  // B #12
+  if (use_branch_island) buf[idx++] = 0xa93f47f0;  // STP X16, X17, [SP, #-0x10]
+  buf[idx++] = 0x58000051;                         // LDR X17, #8
+  buf[idx++] = 0x14000003;                         // B #12
   buf[idx++] = addr & 0xFFFFFFFF;
   buf[idx++] = addr >> 32u;
   if (type == BL)
     buf[idx++] = 0xD63F0220;  // BLR X17
   else
     buf[idx++] = 0xD61F0220;  // BR X17
-  return idx * 4;             // 20 or 28
+  return idx * 4;             // 20(24) or 28(32)
 }
 
 static size_t sh_a64_rewrite_adr(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_type_t type,
@@ -233,13 +263,25 @@ static size_t sh_a64_rewrite_cb(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a
   uint64_t addr = pc + offset;
   addr = sh_a64_fix_addr(addr, rinfo);
 
-  buf[0] = (inst & 0xFF00001F) | 0x40u;  // CB(N)Z Rt, #8
-  buf[1] = 0x14000005;                   // B #20
-  buf[2] = 0x58000051;                   // LDR X17, #8
-  buf[3] = 0xd61f0220;                   // BR X17
-  buf[4] = addr & 0xFFFFFFFF;
-  buf[5] = addr >> 32u;
-  return 24;
+  bool use_branch_island = (0 != rinfo->island_rewrite);
+  if (use_branch_island) {
+    if (0 != sh_a64_build_island_rewrite(addr, rinfo)) return 0;  // failed
+    addr = rinfo->island_rewrite->addr;
+  }
+
+  size_t idx = 0;
+  buf[idx++] = (inst & 0xFF00001F) | 0x40u;  // CB(N)Z Rt, #8
+  if (use_branch_island) {
+    buf[idx++] = 0x14000006;  // B #24
+    buf[idx++] = 0xa93f47f0;  // STP X16, X17, [SP, #-0x10]
+  } else {
+    buf[idx++] = 0x14000005;  // B #20
+  }
+  buf[idx++] = 0x58000051;  // LDR X17, #8
+  buf[idx++] = 0xd61f0220;  // BR X17
+  buf[idx++] = addr & 0xFFFFFFFF;
+  buf[idx++] = addr >> 32u;
+  return idx * 4;  // 24(28);
 }
 
 static size_t sh_a64_rewrite_tb(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_rewrite_info_t *rinfo) {
@@ -248,13 +290,25 @@ static size_t sh_a64_rewrite_tb(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a
   uint64_t addr = pc + offset;
   addr = sh_a64_fix_addr(addr, rinfo);
 
-  buf[0] = (inst & 0xFFF8001F) | 0x40u;  // TB(N)Z Rt, #<imm>, #8
-  buf[1] = 0x14000005;                   // B #20
-  buf[2] = 0x58000051;                   // LDR X17, #8
-  buf[3] = 0xd61f0220;                   // BR X17
-  buf[4] = addr & 0xFFFFFFFF;
-  buf[5] = addr >> 32u;
-  return 24;
+  bool use_branch_island = (0 != rinfo->island_rewrite);
+  if (use_branch_island) {
+    if (0 != sh_a64_build_island_rewrite(addr, rinfo)) return 0;  // failed
+    addr = rinfo->island_rewrite->addr;
+  }
+
+  size_t idx = 0;
+  buf[idx++] = (inst & 0xFFF8001F) | 0x40u;  // TB(N)Z Rt, #<imm>, #8
+  if (use_branch_island) {
+    buf[idx++] = 0x14000006;  // B #24
+    buf[idx++] = 0xa93f47f0;  // STP X16, X17, [SP, #-0x10]
+  } else {
+    buf[idx++] = 0x14000005;  // B #20
+  }
+  buf[idx++] = 0x58000051;  // LDR X17, #8
+  buf[idx++] = 0xd61f0220;  // BR X17
+  buf[idx++] = addr & 0xFFFFFFFF;
+  buf[idx++] = addr >> 32u;
+  return idx * 4;  // 24(28);
 }
 
 size_t sh_a64_rewrite(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_rewrite_info_t *rinfo) {
@@ -279,7 +333,12 @@ size_t sh_a64_rewrite(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_rewrite
   }
 }
 
-size_t sh_a64_absolute_jump_with_br(uint32_t *buf, uintptr_t addr) {
+size_t sh_a64_nop(uint32_t *buf) {
+  buf[0] = 0xd503201f;  // NOP
+  return 4;
+}
+
+size_t sh_a64_absolute_jump_with_br_ip(uint32_t *buf, uintptr_t addr) {
   buf[0] = 0x58000051;  // LDR X17, #8
   buf[1] = 0xd61f0220;  // BR X17
   buf[2] = addr & 0xFFFFFFFF;
@@ -296,12 +355,56 @@ size_t sh_a64_absolute_jump_with_br(uint32_t *buf, uintptr_t addr) {
 // https://android-review.googlesource.com/c/platform/bionic/+/1242754
 // https://developer.android.com/ndk/guides/abis#armv9_enabling_pac_and_bti_for_cc
 // https://developer.arm.com/documentation/100067/0612/armclang-Command-line-Options/-mbranch-protection
-size_t sh_a64_absolute_jump_with_ret(uint32_t *buf, uintptr_t addr) {
+size_t sh_a64_absolute_jump_with_ret_ip(uint32_t *buf, uintptr_t addr) {
   buf[0] = 0x58000051;  // LDR X17, #8
   buf[1] = 0xd65f0220;  // RET X17
   buf[2] = addr & 0xFFFFFFFF;
   buf[3] = addr >> 32u;
   return 16;
+}
+
+size_t sh_a64_restore_ip(uint32_t *buf) {
+  buf[0] = 0xa97f47f0;  // LDP X16, X17, [SP, #-0x10]
+  return 4;
+}
+
+size_t sh_a64_absolute_jump_with_br_rx(uint32_t *buf, uintptr_t addr) {
+#ifdef SH_CONFIG_CORRUPT_IP_REGS
+  buf[0] = 0xa93f47f0;  // STP X16, X17, [SP, #-0x10]
+  buf[1] = 0x58000050;  // LDR X16, #8
+  buf[2] = 0xd61f0200;  // BR X16
+#else
+  buf[0] = 0xa93f07e0;  // STP X0, X1, [SP, #-0x10]
+  buf[1] = 0x58000040;  // LDR X0, #8
+  buf[2] = 0xd61f0000;  // BR X0
+#endif
+  buf[3] = addr & 0xFFFFFFFF;
+  buf[4] = addr >> 32u;
+  return 20;
+}
+
+size_t sh_a64_absolute_jump_with_ret_rx(uint32_t *buf, uintptr_t addr) {
+#ifdef SH_CONFIG_CORRUPT_IP_REGS
+  buf[0] = 0xa93f47f0;  // STP X16, X17, [SP, #-0x10]
+  buf[1] = 0x58000050;  // LDR X16, #8
+  buf[2] = 0xd65f0200;  // RET X16
+#else
+  buf[0] = 0xa93f07e0;  // STP X0, X1, [SP, #-0x10]
+  buf[1] = 0x58000040;  // LDR X0, #8
+  buf[2] = 0xd65f0000;  // RET X0
+#endif
+  buf[3] = addr & 0xFFFFFFFF;
+  buf[4] = addr >> 32u;
+  return 20;
+}
+
+size_t sh_a64_restore_rx(uint32_t *buf) {
+#ifdef SH_CONFIG_CORRUPT_IP_REGS
+  buf[0] = 0xa97f47f0;  // LDP X16, X17, [SP, #-0x10]
+#else
+  buf[0] = 0xa97f07e0;  // LDP X0, X1, [SP, #-0x10]
+#endif
+  return 4;
 }
 
 size_t sh_a64_relative_jump(uint32_t *buf, uintptr_t addr, uintptr_t pc) {

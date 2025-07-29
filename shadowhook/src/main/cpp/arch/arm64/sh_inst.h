@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,20 +25,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "xdl.h"
+#include "sh_island.h"
+#include "sh_linker.h"
 
 typedef struct {
-  uint32_t trampo[4];   // align 16 // length == backup_len
-  uint8_t backup[16];   // align 16
-  uint32_t backup_len;  // == 4 or 16
-  uint32_t exit_type;
-  uintptr_t exit_addr;
-  uint32_t exit[4];
-  uintptr_t enter_addr;
+  uint8_t backup[24];
+  size_t backup_len;  // = 4 or 20 or 24
+  uint32_t exit[6];   // length = backup_len
+  uintptr_t enter;
+  sh_island_t island_exit;     // .size = 16 or 20
+  sh_island_t island_enter;    // .size = 8
+  sh_island_t island_rewrite;  // .size = 8
 } sh_inst_t;
 
-int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, xdl_info_t *dlinfo, uintptr_t new_addr,
-                 uintptr_t *orig_addr, uintptr_t *orig_addr2, bool ignore_symbol_check);
+typedef void (*sh_inst_set_orig_addr_t)(uintptr_t orig_addr, void *arg);
+int sh_inst_hook(sh_inst_t *self, uintptr_t target_addr, sh_addr_info_t *addr_info, uintptr_t new_addr,
+                 bool is_to_interceptor, sh_inst_set_orig_addr_t set_orig_addr, void *set_orig_addr_arg);
+int sh_inst_rehook(sh_inst_t *self, uintptr_t target_addr, sh_addr_info_t *addr_info, uintptr_t new_addr,
+                   bool is_to_interceptor);
 int sh_inst_unhook(sh_inst_t *self, uintptr_t target_addr);
 
 void sh_inst_free_after_dlclose(sh_inst_t *self, uintptr_t target_addr);
+
+void sh_inst_build_glue_launcher(void *buf, void *ctx);

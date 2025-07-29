@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,10 @@
 
 #if defined(__arm__)
 
+int test_t16_for_unique(int a, int b);
+int test_t16_for_multi(int a, int b);
+int test_t16_for_shared(int a, int b);
+
 int test_t16_helper_global(int a, int b);
 int test_t16_b_t1(int a, int b);
 int test_t16_b_t1_fixaddr(int a, int b);
@@ -42,6 +46,7 @@ int test_t16_cbnz_t1_fixaddr(int a, int b);
 int test_t16_it_t1_case1(int a, int b);
 int test_t16_it_t1_case2(int a, int b);
 int test_t16_it_t1_case3(int a, int b);
+int test_t16_instr(int a, int b);
 
 int test_t32_helper_global(int a, int b);
 int test_t32_b_t3(int a, int b);
@@ -59,6 +64,7 @@ int test_t32_tbb_t1(int a, int b);
 int test_t32_tbh_t1(int a, int b);
 int test_t32_vldr_lit_t1_case1(int a, int b);
 int test_t32_vldr_lit_t1_case2(int a, int b);
+int test_t32_instr(int a, int b);
 
 int test_a32_helper_global(int a, int b);
 int test_a32_b_a1(int a, int b);
@@ -83,8 +89,13 @@ int test_a32_ldr_lit_a1_case1(int a, int b);
 int test_a32_ldr_lit_a1_case2(int a, int b);
 int test_a32_ldr_reg_a1_case1(int a, int b);
 int test_a32_ldr_reg_a1_case2(int a, int b);
+int test_a32_instr(int a, int b);
 
 #elif defined(__aarch64__)
+
+int test_a64_for_unique(int a, int b);
+int test_a64_for_multi(int a, int b);
+int test_a64_for_shared(int a, int b);
 
 int test_a64_helper_global(int a, int b);
 int test_a64_b(int a, int b);
@@ -110,12 +121,18 @@ int test_a64_tbz(int a, int b);
 int test_a64_tbz_fixaddr(int a, int b);
 int test_a64_tbnz(int a, int b);
 int test_a64_tbnz_fixaddr(int a, int b);
+int test_a64_instr_b(int a, int b);
+int test_a64_instr_b_cond(int a, int b);
+int test_a64_instr_cbz(int a, int b);
+int test_a64_instr_tbz(int a, int b);
 
 #endif
 
 int test_recursion_1(int a, int b);
 int test_recursion_2(int a, int b);
 
-int test_hook_multi_times(int a, int b);
+int test_op_multi_times_shared(int a, int b);
+int test_op_multi_times_multi(int a, int b);
+int test_op_multi_times_queue(int a, int b);
 
 void *get_hidden_func_addr(void);

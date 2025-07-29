@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,4 +27,14 @@
 int unittest_hook_sym_addr(int api_level);
 int unittest_hook_sym_name(int api_level);
 int unittest_unhook(void);
+
+int unittest_intercept_sym_addr(void);
+int unittest_intercept_sym_addr_read_fpsimd(void);
+int unittest_intercept_sym_addr_read_write_fpsimd(void);
+int unittest_intercept_sym_name(void);
+int unittest_intercept_sym_name_read_fpsimd(void);
+int unittest_intercept_sym_name_read_write_fpsimd(void);
+int unittest_unintercept(void);
+
 int unittest_run(bool hookee2_loaded);
+int unittest_benchmark(void);

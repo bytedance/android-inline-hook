@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,22 +46,40 @@
 #include "shadowhook.h"
 #include "xdl.h"
 
+typedef enum { SH_TASK_HOOK, SH_TASK_INTERCEPT } sh_task_type_t;
+
 // task
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpadded"
 struct sh_task {
   char *lib_name;
   char *sym_name;
+  char *record_lib_name;
+  char *record_sym_name;
   uintptr_t target_addr;
-  uintptr_t new_addr;
-  uintptr_t *orig_addr;
-  shadowhook_hooked_t hooked;
-  void *hooked_arg;
+  sh_task_type_t type;
+  union {
+    struct {
+      uintptr_t new_addr;
+      uintptr_t *orig_addr;
+      size_t flags;
+      shadowhook_hooked_t hooked;
+      void *hooked_arg;
+    } hook;
+    struct {
+      shadowhook_interceptor_t pre;
+      void *data;
+      size_t flags;
+      shadowhook_intercepted_t intercepted;
+      void *intercepted_arg;
+    } intercept;
+  } typed;
   uintptr_t caller_addr;
-  bool finished;
-  bool error;
-  bool ignore_symbol_check;
-  bool hook_by_target_addr;
+  bool is_by_target_addr;
+  bool is_sym_addr;
+  bool is_proc_start;
+  bool is_finished;
+  bool is_corrupted;
   TAILQ_ENTRY(sh_task, ) link;
 };
 #pragma clang diagnostic pop
@@ -74,64 +92,158 @@ static sh_task_queue_t sh_tasks = TAILQ_HEAD_INITIALIZER(sh_tasks);
 static pthread_rwlock_t sh_tasks_lock = PTHREAD_RWLOCK_INITIALIZER;
 static int sh_tasks_unfinished_cnt = 0;
 
-sh_task_t *sh_task_create_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
-                                         bool ignore_symbol_check, uintptr_t caller_addr) {
-  sh_task_t *self = malloc(sizeof(sh_task_t));
+sh_task_t *sh_task_create_hook_by_target_addr(uintptr_t target_addr, uintptr_t new_addr, uintptr_t *orig_addr,
+                                              uint32_t flags, bool is_sym_addr, bool is_proc_start,
+                                              uintptr_t caller_addr, char *record_lib_name,
+                                              char *record_sym_name) {
+  sh_task_t *self = calloc(1, sizeof(sh_task_t));
   if (NULL == self) return NULL;
   self->lib_name = NULL;
   self->sym_name = NULL;
+  if (NULL != record_lib_name) {
+    if (NULL == (self->record_lib_name = strdup(record_lib_name))) goto err;
+  } else {
+    self->record_lib_name = NULL;
+  }
+  if (NULL != record_sym_name) {
+    if (NULL == (self->record_sym_name = strdup(record_sym_name))) goto err;
+  } else {
+    self->record_sym_name = NULL;
+  }
   self->target_addr = target_addr;
-  self->new_addr = new_addr;
-  self->orig_addr = orig_addr;
-  self->hooked = NULL;
-  self->hooked_arg = NULL;
+  self->type = SH_TASK_HOOK;
+  self->typed.hook.new_addr = new_addr;
+  self->typed.hook.orig_addr = orig_addr;
+  self->typed.hook.flags = (size_t)flags;
+  self->typed.hook.hooked = NULL;
+  self->typed.hook.hooked_arg = NULL;
   self->caller_addr = caller_addr;
-  self->finished = false;
-  self->error = false;
-  self->ignore_symbol_check = ignore_symbol_check;
-  self->hook_by_target_addr = true;
-
-  return self;
-}
-
-sh_task_t *sh_task_create_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,
-                                      uintptr_t *orig_addr, shadowhook_hooked_t hooked, void *hooked_arg,
-                                      uintptr_t caller_addr) {
-  sh_task_t *self = malloc(sizeof(sh_task_t));
-  if (NULL == self) return NULL;
-
-  if (NULL == (self->lib_name = strdup(lib_name))) goto err;
-  if (NULL == (self->sym_name = strdup(sym_name))) goto err;
-  self->target_addr = 0;
-  self->new_addr = new_addr;
-  self->orig_addr = orig_addr;
-  self->hooked = hooked;
-  self->hooked_arg = hooked_arg;
-  self->caller_addr = caller_addr;
-  self->finished = false;
-  self->error = false;
-  self->ignore_symbol_check = false;
-  self->hook_by_target_addr = false;
-
+  self->is_by_target_addr = true;
+  self->is_sym_addr = is_sym_addr;
+  self->is_proc_start = is_proc_start;
+  self->is_finished = false;
+  self->is_corrupted = false;
   return self;
 
 err:
-  if (NULL != self->lib_name) free(self->lib_name);
-  if (NULL != self->sym_name) free(self->sym_name);
-  free(self);
+  sh_task_destroy(self);
+  return NULL;
+}
+
+sh_task_t *sh_task_create_hook_by_sym_name(const char *lib_name, const char *sym_name, uintptr_t new_addr,
+                                           uintptr_t *orig_addr, uint32_t flags, shadowhook_hooked_t hooked,
+                                           void *hooked_arg, uintptr_t caller_addr) {
+  sh_task_t *self = calloc(1, sizeof(sh_task_t));
+  if (NULL == self) return NULL;
+  if (NULL == (self->lib_name = strdup(lib_name))) goto err;
+  if (NULL == (self->sym_name = strdup(sym_name))) goto err;
+  self->record_lib_name = NULL;
+  self->record_sym_name = NULL;
+  self->target_addr = 0;
+  self->type = SH_TASK_HOOK;
+  self->typed.hook.new_addr = new_addr;
+  self->typed.hook.orig_addr = orig_addr;
+  self->typed.hook.flags = (size_t)flags;
+  self->typed.hook.hooked = hooked;
+  self->typed.hook.hooked_arg = hooked_arg;
+  self->caller_addr = caller_addr;
+  self->is_by_target_addr = false;
+  self->is_sym_addr = true;
+  self->is_proc_start = true;
+  self->is_finished = false;
+  self->is_corrupted = false;
+  return self;
+
+err:
+  sh_task_destroy(self);
+  return NULL;
+}
+
+sh_task_t *sh_task_create_intercept_by_target_addr(uintptr_t target_addr, shadowhook_interceptor_t pre,
+                                                   void *data, uint32_t flags, bool is_sym_addr,
+                                                   bool is_proc_start, uintptr_t caller_addr,
+                                                   char *record_lib_name, char *record_sym_name) {
+  sh_task_t *self = calloc(1, sizeof(sh_task_t));
+  if (NULL == self) return NULL;
+  self->lib_name = NULL;
+  self->sym_name = NULL;
+  if (NULL != record_lib_name) {
+    if (NULL == (self->record_lib_name = strdup(record_lib_name))) goto err;
+  } else {
+    self->record_lib_name = NULL;
+  }
+  if (NULL != record_sym_name) {
+    if (NULL == (self->record_sym_name = strdup(record_sym_name))) goto err;
+  } else {
+    self->record_sym_name = NULL;
+  }
+  self->target_addr = target_addr;
+  self->type = SH_TASK_INTERCEPT;
+  self->typed.intercept.pre = pre;
+  self->typed.intercept.data = data;
+  self->typed.intercept.flags = (size_t)flags;
+  self->typed.intercept.intercepted = NULL;
+  self->typed.intercept.intercepted_arg = NULL;
+  self->caller_addr = caller_addr;
+  self->is_by_target_addr = true;
+  self->is_sym_addr = is_sym_addr;
+  self->is_proc_start = is_proc_start;
+  self->is_finished = false;
+  self->is_corrupted = false;
+  return self;
+
+err:
+  sh_task_destroy(self);
+  return NULL;
+}
+
+sh_task_t *sh_task_create_intercept_by_sym_name(const char *lib_name, const char *sym_name,
+                                                shadowhook_interceptor_t pre, void *data, uint32_t flags,
+                                                shadowhook_intercepted_t intercepted, void *intercepted_arg,
+                                                uintptr_t caller_addr) {
+  sh_task_t *self = calloc(1, sizeof(sh_task_t));
+  if (NULL == self) return NULL;
+  if (NULL == (self->lib_name = strdup(lib_name))) goto err;
+  if (NULL == (self->sym_name = strdup(sym_name))) goto err;
+  self->record_lib_name = NULL;
+  self->record_sym_name = NULL;
+  self->target_addr = 0;
+  self->type = SH_TASK_INTERCEPT;
+  self->typed.intercept.pre = pre;
+  self->typed.intercept.data = data;
+  self->typed.intercept.flags = (size_t)flags;
+  self->typed.intercept.intercepted = intercepted;
+  self->typed.intercept.intercepted_arg = intercepted_arg;
+  self->caller_addr = caller_addr;
+  self->is_by_target_addr = false;
+  self->is_sym_addr = true;
+  self->is_proc_start = true;
+  self->is_finished = false;
+  self->is_corrupted = false;
+  return self;
+
+err:
+  sh_task_destroy(self);
   return NULL;
 }
 
 void sh_task_destroy(sh_task_t *self) {
   if (NULL != self->lib_name) free(self->lib_name);
   if (NULL != self->sym_name) free(self->sym_name);
+  if (NULL != self->record_lib_name) free(self->record_lib_name);
+  if (NULL != self->record_sym_name) free(self->record_sym_name);
   free(self);
 }
 
 static void sh_task_do_callback(sh_task_t *self, int error_number) {
-  if (NULL != self->hooked)
-    self->hooked(error_number, self->lib_name, self->sym_name, (void *)self->target_addr,
-                 (void *)self->new_addr, self->orig_addr, self->hooked_arg);
+  if (SH_TASK_HOOK == self->type && NULL != self->typed.hook.hooked)
+    self->typed.hook.hooked(error_number, self->lib_name, self->sym_name, (void *)self->target_addr,
+                            (void *)self->typed.hook.new_addr, self->typed.hook.orig_addr,
+                            self->typed.hook.hooked_arg);
+  else if (SH_TASK_INTERCEPT == self->type && NULL != self->typed.intercept.intercepted)
+    self->typed.intercept.intercepted(error_number, self->lib_name, self->sym_name, (void *)self->target_addr,
+                                      self->typed.intercept.pre, self->typed.intercept.data,
+                                      self->typed.intercept.intercepted_arg);
 }
 
 static int sh_task_hook_pending(struct dl_phdr_info *info, size_t size, void *arg) {
@@ -141,29 +253,43 @@ static int sh_task_hook_pending(struct dl_phdr_info *info, size_t size, void *ar
 
   sh_task_t *task;
   TAILQ_FOREACH(task, &sh_tasks, link) {
-    if (task->finished) continue;
-    if ('/' == info->dlpi_name[0] && '/' != task->lib_name[0]) {
-      if (!sh_util_ends_with(info->dlpi_name, task->lib_name)) continue;
-    } else if ('/' != info->dlpi_name[0] && '/' == task->lib_name[0]) {
-      if (!sh_util_ends_with(task->lib_name, info->dlpi_name)) continue;
-    } else {
-      if (0 != strcmp(info->dlpi_name, task->lib_name)) continue;
-    }
+    if (task->is_finished || task->is_corrupted || task->is_by_target_addr) continue;
+    if (!sh_util_match_pathname(info->dlpi_name, task->lib_name)) continue;
 
-    xdl_info_t dlinfo;
-    int r = sh_linker_get_dlinfo_by_sym_name(task->lib_name, task->sym_name, &dlinfo);
-    task->target_addr = (uintptr_t)dlinfo.dli_saddr;
+    sh_addr_info_t addr_info;
+    int r = sh_linker_get_addr_info_by_sym_name(task->lib_name, task->sym_name, &addr_info);
     if (SHADOWHOOK_ERRNO_PENDING != r) {
+      task->target_addr = (uintptr_t)addr_info.dli_saddr;
+
       size_t backup_len = 0;
       if (0 == r) {
-        r = sh_switch_hook(task->target_addr, task->new_addr, task->orig_addr, &backup_len, &dlinfo, false);
-        if (0 != r) task->error = true;
+        if (SH_TASK_HOOK == task->type)
+          r = sh_switch_hook(task->target_addr, &addr_info, task->typed.hook.new_addr,
+                             task->typed.hook.orig_addr, task->typed.hook.flags, &backup_len);
+        else
+          r = sh_switch_intercept(task->target_addr, &addr_info, task->typed.intercept.pre,
+                                  task->typed.intercept.data, task->typed.intercept.flags, &backup_len);
+        if (0 != r) task->is_corrupted = true;
       } else {
-        task->error = true;
+        task->is_corrupted = true;
       }
-      sh_recorder_add_hook(r, false, task->target_addr, task->lib_name, task->sym_name, task->new_addr,
-                           backup_len, (uintptr_t)task, task->caller_addr);
-      task->finished = true;
+
+      uint8_t op;
+      uintptr_t new_addr;
+      uint32_t flags;
+      if (SH_TASK_HOOK == task->type) {
+        op = SH_RECORDER_OP_HOOK_SYM_NAME;
+        new_addr = task->typed.hook.new_addr;
+        flags = (uint32_t)task->typed.hook.flags;
+      } else {
+        op = SH_RECORDER_OP_INTERCEPT_SYM_NAME;
+        new_addr = (uintptr_t)task->typed.intercept.pre;
+        flags = (uint32_t)task->typed.intercept.flags;
+      }
+      sh_recorder_add_op(r, op, task->target_addr, task->lib_name, task->sym_name, new_addr, flags,
+                         backup_len, (uintptr_t)task, task->caller_addr, NULL);
+
+      task->is_finished = true;
       sh_task_do_callback(task, r);
       if (0 == __atomic_sub_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST)) break;
     }
@@ -198,24 +324,21 @@ static void sh_task_dl_fini_post(struct dl_phdr_info *info, size_t size, void *d
               info->dlpi_name);
 
   // free switch(es) that are no longer needed (for the currently dlclosed ELF)
-  xdl_info_t dlinfo;
-  dlinfo.dli_fbase = (void *)info->dlpi_addr;
-  dlinfo.dli_fname = info->dlpi_name;
-  dlinfo.dlpi_phdr = info->dlpi_phdr;
-  dlinfo.dlpi_phnum = (size_t)info->dlpi_phnum;
-  sh_switch_free_after_dlclose(&dlinfo);
+  sh_switch_free_after_dlclose(info);
 
   // reset "finished flag" for finished-task (for the currently dlclosed ELF)
   pthread_rwlock_rdlock(&sh_tasks_lock);
   sh_task_t *task;
   TAILQ_FOREACH(task, &sh_tasks, link) {
-    if (task->finished && !task->hook_by_target_addr && 0 != task->target_addr &&
-        sh_util_is_in_elf_pt_load(dlinfo.dli_fbase, dlinfo.dlpi_phdr, dlinfo.dlpi_phnum, task->target_addr)) {
+    if (task->is_finished && !task->is_by_target_addr && 0 != task->target_addr &&
+        sh_linker_is_addr_in_elf_pt_load(task->target_addr, (void *)info->dlpi_addr, info->dlpi_phdr,
+                                         info->dlpi_phnum)) {
       task->target_addr = 0;
-      task->error = false;
-      task->finished = false;
+      task->is_finished = false;
+      task->is_corrupted = false;
       __atomic_add_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
-      SH_LOG_INFO("task: reset finished flag for: lib_name %s, sym_name %s", task->lib_name, task->sym_name);
+      SH_LOG_INFO("task: reset finished flag for: %s lib_name %s, sym_name %s",
+                  SH_TASK_HOOK == task->type ? "hook" : "intercept", task->lib_name, task->sym_name);
     }
   }
   pthread_rwlock_unlock(&sh_tasks_lock);
@@ -232,12 +355,12 @@ static int sh_task_start_monitor_for_android_4x(void) {
   if (tried) goto end;
   tried = true;  // only once
 
-  SH_LOG_INFO("task: start monitor ...");
+  SH_LOG_INFO("task: start linker dlopen monitor ...");
   result = sh_linker_register_dlopen_post_callback(sh_task_dlopen_post);
 
 end:
   pthread_mutex_unlock(&lock);
-  SH_LOG_INFO("task: start monitor %s, return: %d", 0 == result ? "OK" : "FAILED", result);
+  SH_LOG_INFO("task: start linker dlopen monitor %s, return: %d", 0 == result ? "OK" : "FAILED", result);
   return result;
 }
 #endif
@@ -247,21 +370,21 @@ int sh_task_init(void) {
   if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__)) return 0;
 #endif
 
-  SH_LOG_INFO("task: start monitor ...");
+  SH_LOG_INFO("task: start linker DL-init/fini monitor ...");
   if (0 != sh_linker_register_dl_init_callback(sh_task_dl_init_pre, NULL, NULL)) return -1;
   if (0 != sh_linker_register_dl_fini_callback(NULL, sh_task_dl_fini_post, NULL)) return -1;
   return 0;
 }
 
-int sh_task_hook(sh_task_t *self) {
+int sh_task_do(sh_task_t *self) {
   int r;
   size_t backup_len = 0;
-  xdl_info_t dlinfo;
-  memset(&dlinfo, 0, sizeof(xdl_info_t));
+  sh_addr_info_t addr_info;
+  memset(&addr_info, 0, sizeof(sh_addr_info_t));
 
   // find target-address by library-name and symbol-name
-  if (!self->hook_by_target_addr) {
-    r = sh_linker_get_dlinfo_by_sym_name(self->lib_name, self->sym_name, &dlinfo);
+  if (!self->is_by_target_addr) {
+    r = sh_linker_get_addr_info_by_sym_name(self->lib_name, self->sym_name, &addr_info);
     if (SHADOWHOOK_ERRNO_PENDING == r) {
 #if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
       if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__)) {
@@ -272,8 +395,11 @@ int sh_task_hook(sh_task_t *self) {
 #endif
       goto end;
     }
-    if (0 != r) goto end;                             // error
-    self->target_addr = (uintptr_t)dlinfo.dli_saddr;  // OK
+    if (0 != r) goto end;                                // error
+    self->target_addr = (uintptr_t)addr_info.dli_saddr;  // OK
+  } else {
+    addr_info.is_sym_addr = self->is_sym_addr;
+    addr_info.is_proc_start = self->is_proc_start;
   }
 
   // In Android 4.x with UNIQUE mode, if external users are hooking the linker's dlopen(),
@@ -282,56 +408,103 @@ int sh_task_hook(sh_task_t *self) {
 #if SH_UTIL_COMPATIBLE_WITH_ARM_ANDROID_4_X
   if (__predict_false(sh_util_get_api_level() < __ANDROID_API_L__)) {
     if (sh_linker_need_to_pre_register(self->target_addr)) {
-      SH_LOG_INFO("task: hook dlopen/call_ctors/call_dtors internal. target-address %" PRIxPTR,
-                  self->target_addr);
+      SH_LOG_INFO("task: hook dlopen. target-address %" PRIxPTR, self->target_addr);
       if (0 != (r = sh_task_start_monitor_for_android_4x())) goto end;
     }
   }
 #endif
 
-  // hook by target-address
-  r = sh_switch_hook(self->target_addr, self->new_addr, self->orig_addr, &backup_len, &dlinfo,
-                     self->ignore_symbol_check);
-  self->finished = true;
+  // hook/intercept by target-address
+  if (SH_TASK_HOOK == self->type)
+    r = sh_switch_hook(self->target_addr, &addr_info, self->typed.hook.new_addr, self->typed.hook.orig_addr,
+                       self->typed.hook.flags, &backup_len);
+  else
+    r = sh_switch_intercept(self->target_addr, &addr_info, self->typed.intercept.pre,
+                            self->typed.intercept.data, self->typed.intercept.flags, &backup_len);
+  self->is_finished = true;
 
 end:
   if (0 == r || SHADOWHOOK_ERRNO_PENDING == r /* "PENDING" is NOT an error */) {
     pthread_rwlock_wrlock(&sh_tasks_lock);
     TAILQ_INSERT_TAIL(&sh_tasks, self, link);
-    if (!self->finished) __atomic_add_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
+    if (!self->is_finished) __atomic_add_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
     pthread_rwlock_unlock(&sh_tasks_lock);
   }
 
   // record
-  sh_recorder_add_hook(r, self->hook_by_target_addr, self->target_addr,
-                       NULL != self->lib_name ? self->lib_name : "unknown",
-                       NULL != self->sym_name ? self->sym_name : "unknown", self->new_addr, backup_len,
-                       (uintptr_t)self, self->caller_addr);
+  uint8_t op;
+  uintptr_t new_addr;
+  uint32_t flags;
+  if (SH_TASK_HOOK == self->type) {
+    new_addr = self->typed.hook.new_addr;
+    flags = (uint32_t)self->typed.hook.flags;
+    if (!self->is_by_target_addr) {
+      op = SH_RECORDER_OP_HOOK_SYM_NAME;
+    } else {
+      if (!self->is_proc_start) {
+        op = SH_RECORDER_OP_HOOK_INSTR_ADDR;
+      } else {
+        if (!self->is_sym_addr) {
+          op = SH_RECORDER_OP_HOOK_FUNC_ADDR;
+        } else {
+          op = SH_RECORDER_OP_HOOK_SYM_ADDR;
+        }
+      }
+    }
+  } else {
+    new_addr = (uintptr_t)self->typed.intercept.pre;
+    flags = (uint32_t)self->typed.intercept.flags;
+    if (!self->is_by_target_addr) {
+      op = SH_RECORDER_OP_INTERCEPT_SYM_NAME;
+    } else {
+      if (!self->is_proc_start) {
+        op = SH_RECORDER_OP_INTERCEPT_INSTR_ADDR;
+      } else {
+        if (!self->is_sym_addr) {
+          op = SH_RECORDER_OP_INTERCEPT_FUNC_ADDR;
+        } else {
+          op = SH_RECORDER_OP_INTERCEPT_SYM_ADDR;
+        }
+      }
+    }
+  }
+  char *lib_name = self->lib_name;
+  if (NULL == lib_name) lib_name = self->record_lib_name;
+  if (NULL == lib_name) lib_name = "unknown";
+  char *sym_name = self->sym_name;
+  if (NULL == sym_name) sym_name = self->record_sym_name;
+  if (NULL == sym_name) sym_name = "unknown";
+  sh_recorder_add_op(r, op, self->target_addr, lib_name, sym_name, new_addr, flags, backup_len,
+                     (uintptr_t)self, self->caller_addr, NULL);
   return r;
 }
 
-int sh_task_unhook(sh_task_t *self, uintptr_t caller_addr) {
+int sh_task_undo(sh_task_t *self, uintptr_t caller_addr) {
   pthread_rwlock_wrlock(&sh_tasks_lock);
   TAILQ_REMOVE(&sh_tasks, self, link);
-  if (!self->finished) __atomic_sub_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
+  if (!self->is_finished) __atomic_sub_fetch(&sh_tasks_unfinished_cnt, 1, __ATOMIC_SEQ_CST);
   pthread_rwlock_unlock(&sh_tasks_lock);
 
   // check task status
   int r;
-  if (self->error) {
+  if (self->is_corrupted) {
     r = SHADOWHOOK_ERRNO_UNHOOK_ON_ERROR;
     goto end;
   }
-  if (!self->finished) {
+  if (!self->is_finished) {
     r = SHADOWHOOK_ERRNO_UNHOOK_ON_UNFINISHED;
     goto end;
   }
 
   // do unhook
-  r = sh_switch_unhook(self->target_addr, self->new_addr);
+  if (SH_TASK_HOOK == self->type)
+    r = sh_switch_unhook(self->target_addr, self->typed.hook.new_addr, self->typed.hook.flags);
+  else
+    r = sh_switch_unintercept(self->target_addr, self->typed.intercept.pre, self->typed.intercept.data);
 
 end:
   // record
-  sh_recorder_add_unhook(r, (uintptr_t)self, caller_addr);
+  sh_recorder_add_unop(r, SH_TASK_HOOK == self->type ? SH_RECORDER_OP_UNHOOK : SH_RECORDER_OP_UNINTERCEPT,
+                       (uintptr_t)self, caller_addr, NULL);
   return r;
 }

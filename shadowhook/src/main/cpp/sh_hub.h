@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +25,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-int sh_hub_init(void);
-
 typedef struct sh_hub sh_hub_t;
 
-sh_hub_t *sh_hub_create(uintptr_t *trampo);
-void sh_hub_destroy(sh_hub_t *self, bool with_delay);
+int sh_hub_create(sh_hub_t **self);
+void sh_hub_destroy(sh_hub_t *self);
 
-uintptr_t sh_hub_get_orig_addr(sh_hub_t *self);
-uintptr_t *sh_hub_get_orig_addr_addr(sh_hub_t *self);
+uintptr_t sh_hub_get_trampo_addr(sh_hub_t *self);
+uintptr_t *sh_hub_get_orig_addr(sh_hub_t *self);
 
+bool sh_hub_is_proxy_duplicated(sh_hub_t *self, uintptr_t proxy_func);
 int sh_hub_add_proxy(sh_hub_t *self, uintptr_t proxy_func);
-int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func, bool *have_enabled_proxy);
+int sh_hub_del_proxy(sh_hub_t *self, uintptr_t proxy_func);
+size_t sh_hub_get_proxy_count(sh_hub_t *self);
 
 void *sh_hub_get_prev_func(void *func);
 void sh_hub_pop_stack(void *return_address);

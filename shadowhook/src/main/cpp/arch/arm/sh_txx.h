@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ typedef struct {
   uintptr_t end_addr;
   uint16_t *buf;
   size_t buf_offset;
+  size_t inst_prolog_len;
   size_t inst_lens[13];  // 26 / 2 = 13
   size_t inst_lens_cnt;
 } sh_txx_rewrite_info_t;

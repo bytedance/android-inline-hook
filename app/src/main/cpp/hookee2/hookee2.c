@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,12 +30,12 @@
 #define LOG(fmt, ...) __android_log_print(ANDROID_LOG_INFO, "shadowhook_tag", fmt, ##__VA_ARGS__)
 #pragma clang diagnostic pop
 
-int test_hook_before_dlopen_1(int a, int b) {
-  LOG("**> test_hook_before_dlopen_1 called");
+int test_op_before_dlopen_1(int a, int b) {
+  LOG("**> test_op_before_dlopen_1 called");
   return a + b;
 }
 
-int test_hook_before_dlopen_2(int a, int b) {
-  LOG("**> test_hook_before_dlopen_2 called");
+int test_op_before_dlopen_2(int a, int b) {
+  LOG("**> test_op_before_dlopen_2 called");
   return a + b;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,12 +27,14 @@
 #include <sys/types.h>
 
 int sh_safe_init(void);
-uintptr_t *sh_safe_get_orig_addr_addr(uintptr_t target_addr);
+void sh_safe_set_orig_addr(uintptr_t target_addr, uintptr_t orig_addr);
 
-void *sh_safe_pthread_getspecific(pthread_key_t key);
-int sh_safe_pthread_setspecific(pthread_key_t key, const void *value);
-void sh_safe_abort(void);
+__attribute__((always_inline)) void *sh_safe_pthread_getspecific(pthread_key_t key);
+__attribute__((always_inline)) int sh_safe_pthread_setspecific(pthread_key_t key, const void *value);
+__attribute__((always_inline)) void sh_safe_abort(void);
 
-void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-int sh_safe_munmap(void *addr, size_t size);
-int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
+__attribute__((always_inline)) void *sh_safe_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                                                  off_t offset);
+__attribute__((always_inline)) int sh_safe_munmap(void *addr, size_t size);
+__attribute__((always_inline)) int sh_safe_prctl(int option, unsigned long arg2, unsigned long arg3,
+                                                 unsigned long arg4, unsigned long arg5);

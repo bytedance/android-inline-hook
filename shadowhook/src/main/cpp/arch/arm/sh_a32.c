@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -156,19 +156,19 @@ size_t sh_a32_get_rewrite_inst_len(uint32_t inst) {
 }
 
 static bool sh_a32_is_addr_need_fix(uintptr_t addr, sh_a32_rewrite_info_t *rinfo) {
-  return (rinfo->overwrite_start_addr <= addr && addr < rinfo->overwrite_end_addr);
+  return (rinfo->start_addr <= addr && addr < rinfo->end_addr);
 }
 
 static uintptr_t sh_a32_fix_addr(uintptr_t addr, sh_a32_rewrite_info_t *rinfo) {
-  if (rinfo->overwrite_start_addr <= addr && addr < rinfo->overwrite_end_addr) {
-    uintptr_t cursor_addr = rinfo->overwrite_start_addr;
+  if (rinfo->start_addr <= addr && addr < rinfo->end_addr) {
+    uintptr_t cursor_addr = rinfo->start_addr;
     size_t offset = 0;
-    for (size_t i = 0; i < rinfo->rewrite_inst_lens_cnt; i++) {
+    for (size_t i = 0; i < rinfo->inst_lens_cnt; i++) {
       if (cursor_addr >= addr) break;
       cursor_addr += 4;
-      offset += rinfo->rewrite_inst_lens[i];
+      offset += rinfo->inst_lens[i];
     }
-    uintptr_t fixed_addr = (uintptr_t)rinfo->rewrite_buf + offset;
+    uintptr_t fixed_addr = (uintptr_t)rinfo->buf + rinfo->inst_prolog_len + offset;
     SH_LOG_INFO("a32 rewrite: fix addr %" PRIxPTR " -> %" PRIxPTR, addr, fixed_addr);
     return fixed_addr;
   }
@@ -337,29 +337,18 @@ static size_t sh_a32_rewrite_ldr_lit(uint32_t *buf, uint32_t inst, uintptr_t pc,
     buf[2] = 0xE59F0000 | (rt << 12u);     // LDR Rt, [PC, #0]
     buf[3] = 0xEA000000;                   // B #0
     buf[4] = addr;                         //
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wswitch"
-    switch (type) {
-      case LDR_LIT_A1:
-        buf[5] = 0xE5900000 | (rt << 16u) | (rt << 12u);  // LDR Rt, [Rt]
-        break;
-      case LDRB_LIT_A1:
-        buf[5] = 0xE5D00000 | (rt << 16u) | (rt << 12u);  // LDRB Rt, [Rt]
-        break;
-      case LDRD_LIT_A1:
-        buf[5] = 0xE1C000D0 | (rt << 16u) | (rt << 12u);  // LDRD Rt, [Rt]
-        break;
-      case LDRH_LIT_A1:
-        buf[5] = 0xE1D000B0 | (rt << 16u) | (rt << 12u);  // LDRH Rt, [Rt]
-        break;
-      case LDRSB_LIT_A1:
-        buf[5] = 0xE1D000D0 | (rt << 16u) | (rt << 12u);  // LDRSB Rt, [Rt]
-        break;
-      case LDRSH_LIT_A1:
-        buf[5] = 0xE1D000F0 | (rt << 16u) | (rt << 12u);  // LDRSH Rt, [Rt]
-        break;
-    }
-#pragma clang diagnostic pop
+    if (LDR_LIT_A1 == type)
+      buf[5] = 0xE5900000 | (rt << 16u) | (rt << 12u);  // LDR Rt, [Rt]
+    else if (LDRB_LIT_A1 == type)
+      buf[5] = 0xE5D00000 | (rt << 16u) | (rt << 12u);  // LDRB Rt, [Rt]
+    else if (LDRD_LIT_A1 == type)
+      buf[5] = 0xE1C000D0 | (rt << 16u) | (rt << 12u);  // LDRD Rt, [Rt]
+    else if (LDRH_LIT_A1 == type)
+      buf[5] = 0xE1D000B0 | (rt << 16u) | (rt << 12u);  // LDRH Rt, [Rt]
+    else if (LDRSB_LIT_A1 == type)
+      buf[5] = 0xE1D000D0 | (rt << 16u) | (rt << 12u);  // LDRSB Rt, [Rt]
+    else if (LDRSH_LIT_A1 == type)
+      buf[5] = 0xE1D000F0 | (rt << 16u) | (rt << 12u);  // LDRSH Rt, [Rt]
     return 24;
   }
 }
@@ -438,6 +427,11 @@ size_t sh_a32_absolute_jump(uint32_t *buf, uintptr_t addr) {
   buf[0] = 0xE51FF004;  // LDR PC, [PC, #-4]
   buf[1] = addr;
   return 8;
+}
+
+size_t sh_a32_restore_ip(uint32_t *buf) {
+  buf[0] = 0xE51DC004;  // LDR IP, [SP, #-4]
+  return 4;
 }
 
 size_t sh_a32_relative_jump(uint32_t *buf, uintptr_t addr, uintptr_t pc) {

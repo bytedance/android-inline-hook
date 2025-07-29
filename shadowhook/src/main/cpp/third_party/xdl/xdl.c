@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024 HexHacking Team
+// Copyright (c) 2020-2025 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -547,6 +547,21 @@ void *xdl_open(const char *filename, int flags) {
     return xdl_find(filename);
 }
 
+void *xdl_open2(struct dl_phdr_info *info) {
+  xdl_t *self = calloc(1, sizeof(xdl_t));
+  if (NULL == self) return NULL;
+  if (NULL == (self->pathname = strdup((const char *)info->dlpi_name))) {
+    free(self);
+    return NULL;
+  }
+  self->load_bias = info->dlpi_addr;
+  self->dlpi_phdr = info->dlpi_phdr;
+  self->dlpi_phnum = info->dlpi_phnum;
+  self->dynsym_try_load = false;
+  self->symtab_try_load = false;
+  return self;
+}
+
 void *xdl_close(void *handle) {
   if (NULL == handle) return NULL;
 
@@ -845,13 +860,23 @@ static void *xdl_open_by_addr(void *addr) {
 
 static bool xdl_sym_is_match(ElfW(Sym) *sym, uintptr_t offset, bool is_symtab) {
   if (is_symtab) {
-    if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) false;
+    if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) return false;
   } else {
-    if (!XDL_DYNSYM_IS_EXPORT_SYM(sym->st_shndx)) false;
+    if (!XDL_DYNSYM_IS_EXPORT_SYM(sym->st_shndx)) return false;
   }
+  if (ELF_ST_TYPE(sym->st_info) == STT_TLS) return false;
 
-  return ELF_ST_TYPE(sym->st_info) != STT_TLS && offset >= sym->st_value &&
-         offset < sym->st_value + sym->st_size;
+  // For thumb instructions, "st_value" is an odd number, and the instructions are stored
+  // in the range: [st_value - 1, st_value - 1 + st_size).
+  // NOTE: The dladdr() implementation in the Android bionic linker does NOT fix this for
+  // thumb and is therefore incorrect.
+  uintptr_t sym_st_value_fixed = sym->st_value;
+#if defined(__arm__) && defined(__thumb__)
+#define CLEAR_BIT0(addr) ((addr) & 0xFFFFFFFE)
+  sym_st_value_fixed = CLEAR_BIT0(sym->st_value);
+#endif
+
+  return offset >= sym_st_value_fixed && offset < sym_st_value_fixed + sym->st_size;
 }
 
 static ElfW(Sym) *xdl_sym_by_addr(void *handle, void *addr) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -48,15 +48,16 @@ END(test_a32_helper_hidden_thumb)
 
 // B A1
 ENTRY_GLOBAL_ARM(test_a32_b_a1)
-    cmp      r0, r1
-    bne      test_a32_helper_hidden_tail
+    b        test_a32_helper_hidden_tail
+    nop
     bx       lr
 END(test_a32_b_a1)
 
 // B A1 fixaddr
 ENTRY_GLOBAL_ARM(test_a32_b_a1_fixaddr)
-    b        .a32_b_a1_fixaddr_short_jump
-.a32_b_a1_fixaddr_short_jump:
+    b        .L_a32_b_a1_fixaddr_next
+    bx       lr
+.L_a32_b_a1_fixaddr_next:
     b        test_a32_helper_hidden_tail
     bx       lr
 END(test_a32_b_a1_fixaddr)
@@ -237,9 +238,9 @@ END(test_a32_ldr_lit_a1_case1)
 // LDR LIT A1 case2
 ENTRY_GLOBAL_ARM_BOUND(test_a32_ldr_lit_a1_case2)
     cmp      r0, r1
-    ldrne    pc, .a32_ldr_lit_a1_case2_data
+    ldrne    pc, .L_a32_ldr_lit_a1_case2_data
     bx       lr
-.a32_ldr_lit_a1_case2_data:
+.L_a32_ldr_lit_a1_case2_data:
     .long    0
     bx       lr
 END(test_a32_ldr_lit_a1_case2)
@@ -273,3 +274,22 @@ ENTRY_HIDDEN_ARM(test_a32_helper_hidden_tail)
     add      r0, r0, r1
     bx       lr
 END(test_a32_helper_hidden_tail)
+
+
+ENTRY_GLOBAL_ARM(test_a32_instr)
+    nop
+    nop
+    add      r0, r0, r1
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    bx       lr
+END(test_a32_instr)

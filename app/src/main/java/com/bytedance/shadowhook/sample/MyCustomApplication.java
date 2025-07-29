@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 ByteDance Inc.
+// Copyright (c) 2021-2025 ByteDance Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,12 +37,6 @@ public class MyCustomApplication extends Application {
         System.loadLibrary("hookee");
         System.loadLibrary("unittest");
 
-//        ShadowHook.init(new ShadowHook.ConfigBuilder()
-//                .setMode(ShadowHook.Mode.UNIQUE)
-//                .setDebuggable(true)
-//                .setRecordable(true)
-//                .build());
-
-        SysTest.init(true, true, true);
+        SysTest.init(ShadowHook.Mode.SHARED, true, true);
     }
 }
