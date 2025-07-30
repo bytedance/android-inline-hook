@@ -14,7 +14,7 @@
 
 - **Stability** - Can be stably used in production apps.
 - **Compatibility** - Always maintains backward compatibility of API and ABI in new versions.
-- **Performance** - Continuously reduces API call overhead and additional runtime overhead introduced by hooks.
+- **Performance** - Continuously reduces API call overhead and additional runtime overhead caused by by hooks.
 - **Functionality** - Besides basic hook functionality, provides general solutions for "hook-related" issues.
 
 > If you need an Android PLT hook library, try [ByteHook](https://github.com/bytedance/bhook).
@@ -31,7 +31,7 @@
 - Supports hook and intercept operation recording, which can be exported at any time.
 - Supports registering callbacks before and after linker calls `.init` + `.init_array` and `.fini` + `.fini_array` of newly loaded ELFs.
 - Supports bypassing linker namespace restrictions to query symbol addresses in `.dynsym` and `.symtab` of all ELFs in the process.
-- Compatible with CFI unwind and FP unwind in hook proxy functions and intercept interceptor functions.
+- Compatible with CFI unwind and FP unwind in hook proxy functions and interceptor functions.
 - Licensed under the MIT license.
 
 
@@ -47,7 +47,7 @@
 
 ### 1. Add dependencies in build.gradle
 
-shadowhook is published on [Maven Central](https://search.maven.org/). To use [native dependencies](https://developer.android.com/studio/build/native-dependencies), shadowhook uses the [Prefab](https://google.github.io/prefab/) package format, which is supported from [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
+shadowhook is published on [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook). To use [native dependencies](https://developer.android.com/studio/build/native-dependencies), shadowhook uses the [Prefab](https://google.github.io/prefab/) package format, which is supported from [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
 
 ```Gradle
 allprojects {
@@ -274,6 +274,12 @@ void do_unintercept() {
 
 - To simplify the example code, `instr_addr` is fixed as `sym_addr + 20`. In real scenarios, memory scanning and other methods are generally used to determine the address of the instruction that needs to be intercepted.
 - Since aarch32 and aarch64 have different registers and the instructions of the same function are different, the intercept logic generally needs to be written separately. Here only includes example code for aarch64.
+
+
+## Feedback
+
+* [GitHub Issues](https://github.com/bytedance/android-inline-hook/issues)
+* [GitHub Discussions](https://github.com/bytedance/android-inline-hook/discussions)
 
 
 ## Contributing

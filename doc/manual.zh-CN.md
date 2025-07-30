@@ -10,7 +10,7 @@
 - **稳定** - 可以稳定的用于 production app 中。
 - **兼容** - 始终保持新版本 API 和 ABI 向后兼容。
 - **性能** - 持续降低 API 调用耗时和 hook 后引入的额外运行时耗时。
-- **功能** - 除了基本的 hook 功能以外，还提供“hook引起或相关”问题的通用解决方案。
+- **功能** - 除了基本的 hook 功能以外，还提供“hook 引起或相关”问题的通用解决方案。
 
 > 如果你需要的是 Android PLT hook 库，建议试试 [ByteHook](https://github.com/bytedance/bhook)。
 
@@ -21,7 +21,7 @@
 - 支持 Android `4.1` - `16`（API level `16` - `36`）。
 - 支持 hook 和 intercept。
 - 支持通过“地址”或“库名 + 函数名”指定 hook 和 intercept 的目标位置。
-- 自动完成对“新加载ELF”的 hook 和 intercept，执行完成后调用可选的回调函数。
+- 自动完成对“新加载 ELF”的 hook 和 intercept，执行完成后调用可选的回调函数。
 - 自动避免代理函数之间形成的递归环形调用。
 - 支持 hook 和 intercept 操作记录，操作记录可随时导出。
 - 支持注册 linker 调用新加载 ELF 的 `.init` + `.init_array` 和 `.fini` + `.fini_array` 前后的回调函数。
@@ -34,7 +34,7 @@
 
 ## 在 build.gradle 中增加依赖
 
-shadowhook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
+shadowhook 发布在 [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
 
 ```Gradle
 allprojects {
@@ -214,9 +214,9 @@ int shadowhook_init(shadowhook_mode_t mode, bool debuggable);
 - `0`：成功
 - 非 `0`：失败（非 `0` 值为错误码）
 
-## 初始化参数及相关API
+## 初始化参数及相关 API
 
-### 默认hook模式
+### 默认 hook 模式
 
 通用的 inline hook 库除了完成基本的 inline hook 功能以外，还面对更多的业务挑战，比如：
 
@@ -310,7 +310,7 @@ void shadowhook_set_recordable(bool recordable);
 
 操作记录对性能影响较小，建议根据实际需要决定是否开启。
 
-### 禁用shadowhook
+### 禁用 shadowhook
 
 - `true`：禁用。
 - `false`（默认值）：不禁用。
@@ -526,7 +526,7 @@ shadowhook 的 hook 和 intercept 一共提供了以下 API（不含 unhook 和 
 - 当被 hook 或 intercept 的函数所在的 ELF 还没有被加载到内存时，这组 API 会在 shadowhook 内部记录这个 hook / intercept 任务，API 会返回 `errno 1 - pending task`。等对应 ELF 被加载到内存中时，shadowhook 会在 linker 调用该动态库的 `.init` 和 `.init_array` 之前，去完成之前记录的未完成的任务。如果调用的是 `shadowhook_*_sym_name_callback*()` API，在执行完 hook / intercept 任务后，shadowhook 会调用你指定的 callback。
 
 
-# hook和unhook
+# hook 和 unhook
 
 > [!IMPORTANT]
 > - 目前只支持针对函数整体的 hook。
@@ -1109,7 +1109,7 @@ void do_unhook(void) {
 ```
 
 
-# intercept和unintercept
+# intercept 和 unintercept
 
 intercept 作用于“指令地址”（可以是某个函数的首地址（函数的第一条指令的地址），也可以是函数中间某条指令的地址）。intercept 需要调用者指定一个拦截器函数。intercept 成功后，当执行到被 intercept 的指令时，会先执行调用者指定的拦截器函数（其中，输入参数中包含了所有的寄存器值），在拦截器函数中，可以读取和修改这些寄存器值。当拦截器函数返回后，会继续执行被 intercept 的指令。
 

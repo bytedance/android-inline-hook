@@ -15,7 +15,7 @@
 - **稳定** - 可以稳定的用于 production app 中。
 - **兼容** - 始终保持新版本 API 和 ABI 向后兼容。
 - **性能** - 持续降低 API 调用耗时和 hook 后引入的额外运行时耗时。
-- **功能** - 除了基本的 hook 功能以外，还提供“hook引起或相关”问题的通用解决方案。
+- **功能** - 除了基本的 hook 功能以外，还提供“hook 引起或相关”问题的通用解决方案。
 
 > 如果你需要的是 Android PLT hook 库，建议试试 [ByteHook](https://github.com/bytedance/bhook)。
 
@@ -26,7 +26,7 @@
 - 支持 Android `4.1` - `16`（API level `16` - `36`）。
 - 支持 hook 和 intercept。
 - 支持通过“地址”或“库名 + 函数名”指定 hook 和 intercept 的目标位置。
-- 自动完成对“新加载ELF”的 hook 和 intercept，执行完成后调用可选的回调函数。
+- 自动完成对“新加载 ELF”的 hook 和 intercept，执行完成后调用可选的回调函数。
 - 自动避免代理函数之间形成的递归环形调用。
 - 支持 hook 和 intercept 操作记录，操作记录可随时导出。
 - 支持注册 linker 调用新加载 ELF 的 `.init` + `.init_array` 和 `.fini` + `.fini_array` 前后的回调函数。
@@ -47,7 +47,7 @@
 
 ### 1. 在 build.gradle 中增加依赖
 
-shadowhook 发布在 [Maven Central](https://search.maven.org/) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
+shadowhook 发布在 [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
 
 ```Gradle
 allprojects {
@@ -274,6 +274,12 @@ void do_unintercept() {
 
 - 为了简化示例代码，这里的 `instr_addr` 固定为 `sym_addr + 20`。在真实的场景中，一般会结合内存扫描等手段来确定需要 intercept 的指令的地址。
 - 由于 aarch32 和 aarch64 的寄存器不同，同一个函数的指令也不同，所以 intercept 逻辑一般需要分别编写。这里只包含了针对 aarch64 的示例代码。
+
+
+## 反馈
+
+* [GitHub Issues](https://github.com/bytedance/android-inline-hook/issues)
+* [GitHub Discussions](https://github.com/bytedance/android-inline-hook/discussions)
 
 
 ## 贡献
