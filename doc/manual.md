@@ -34,7 +34,7 @@
 
 ## Add dependency in build.gradle
 
-shadowhook is published on [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook). To use [native dependencies](https://developer.android.com/studio/build/native-dependencies), shadowhook uses the [Prefab](https://google.github.io/prefab/) package format, which is supported from [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies).
+shadowhook is published on [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook). To use [native dependencies](https://developer.android.com/build/native-dependencies), shadowhook uses the [Prefab](https://google.github.io/prefab/) package format, which is supported from Android Gradle Plugin 4.0.
 
 ```Gradle
 allprojects {

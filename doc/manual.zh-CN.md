@@ -34,7 +34,7 @@
 
 ## 在 build.gradle 中增加依赖
 
-shadowhook 发布在 [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook) 上。为了使用 [native 依赖项](https://developer.android.com/studio/build/native-dependencies)，shadowhook 使用了从 [Android Gradle Plugin 4.0+](https://developer.android.com/studio/releases/gradle-plugin?buildsystem=cmake#native-dependencies) 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
+shadowhook 发布在 [Maven Central](https://central.sonatype.com/artifact/com.bytedance.android/shadowhook) 上。为了使用 [native 依赖项](https://developer.android.com/build/native-dependencies)，shadowhook 使用了从 Android Gradle Plugin 4.0 开始支持的 [Prefab](https://google.github.io/prefab/) 包格式。
 
 ```Gradle
 allprojects {
