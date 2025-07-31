@@ -5,10 +5,7 @@
 ![](https://img.shields.io/badge/Android-4.1%20--%2016-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
-[Readme - English](README.md)
-
-
-## 介绍
+[English](README.md)
 
 **shadowhook 是一个 Android inline hook 库。** 它的目标是：
 

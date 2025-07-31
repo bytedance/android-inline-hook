@@ -5,10 +5,7 @@
 ![](https://img.shields.io/badge/Android-4.1%20--%2016-blue.svg?style=flat)
 ![](https://img.shields.io/badge/arch-armeabi--v7a%20%7C%20arm64--v8a-blue.svg?style=flat)
 
-[Readme - 简体中文](README.zh-CN.md)
-
-
-## Introduction
+[简体中文](README.zh-CN.md)
 
 **shadowhook is an Android inline hook library.** Its goals are:
 
