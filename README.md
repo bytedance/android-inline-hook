@@ -11,7 +11,7 @@
 
 - **Stability** - Can be stably used in production apps.
 - **Compatibility** - Always maintains backward compatibility of API and ABI in new versions.
-- **Performance** - Continuously reduces API call overhead and additional runtime overhead caused by by hooks.
+- **Performance** - Continuously reduces API call overhead and additional runtime overhead introduced by hooks.
 - **Functionality** - Besides basic hook functionality, provides general solutions for "hook-related" issues.
 
 > If you need an Android PLT hook library, try [ByteHook](https://github.com/bytedance/bhook).
