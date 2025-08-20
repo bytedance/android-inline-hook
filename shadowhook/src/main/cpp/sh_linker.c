@@ -404,8 +404,10 @@ void shadowhook_proxy_android_linker_soinfo_call_constructors(void *soinfo) {
     }
   } else {
     if (__predict_true(gettid() == scan_tid)) {
-      // do pre-memory-scan
-      if (0 == sh_linker_soinfo_memory_scan_pre(soinfo)) do_memory_scan_pre_ok = true;
+      if (!__atomic_load_n(&sh_linker_soinfo_offset_scan_ok, __ATOMIC_RELAXED)) {
+        // do pre-memory-scan
+        if (0 == sh_linker_soinfo_memory_scan_pre(soinfo)) do_memory_scan_pre_ok = true;
+      }
     }
   }
 
