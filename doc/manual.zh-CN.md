@@ -1703,7 +1703,7 @@ void shadowhook_dump_records(int fd, uint32_t item_flags);
 
 - `item_flags` 参数用于指定需要获取哪些操作记录项，可以用 `|` 拼接上面定义的 flag；也可以指定 `SHADOWHOOK_RECORD_ITEM_ALL` 以获取**所有**的操作记录项。
 - `shadowhook_get_records()` API 返回一个用 `malloc()` 分配的 buffer，其中包含了操作记录。**外部使用完后请使用 free()` 释放。**
-- `shadowhook_dump_records()` API 会向 `fd` 参数所指的文件描述符写出操作记录。**这个 API 是异步信号安全的，可以在信号处理函数中调用。**
+- `shadowhook_dump_records()` API 会向 `fd` 参数所指的文件描述符写出操作记录。**这个 API 不是异步信号安全的，不得在异步信号处理函数中调用。**
 
 ## 解析操作记录
 

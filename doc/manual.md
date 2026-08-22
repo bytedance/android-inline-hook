@@ -1703,7 +1703,7 @@ void shadowhook_dump_records(int fd, uint32_t item_flags);
 
 - The `item_flags` parameter is used to specify which operation record items to retrieve. You can use `|` to concatenate the flags defined above; you can also specify `SHADOWHOOK_RECORD_ITEM_ALL` to get **all** operation record items.
 - The `shadowhook_get_records()` API returns a buffer allocated with `malloc()` containing the operation records. **Please use `free()` to release after external use.**
-- The `shadowhook_dump_records()` API writes operation records to the file descriptor specified by the `fd` parameter. **This API is async-signal-safe and can be called in signal handlers.**
+- The `shadowhook_dump_records()` API writes operation records to the file descriptor specified by the `fd` parameter. **This API is not async-signal-safe and must not be called from an asynchronous signal handler.**
 
 ## Parsing Operation Records
 
