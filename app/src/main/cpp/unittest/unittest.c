@@ -358,6 +358,8 @@ GLOBL_DEF(a64_instr_b_cond)
 GLOBL_DEF(a64_instr_bl)
 GLOBL_DEF(a64_instr_cbz)
 GLOBL_DEF(a64_instr_tbz)
+GLOBL_DEF(a64_ldr_x17)
+GLOBL_DEF(a64_adrp_add_x17)
 
 #endif
 
@@ -674,6 +676,8 @@ static int unittest_hook(int api_level) {
   HOOK(a64_tbz_fixaddr);
   HOOK(a64_tbnz);
   HOOK(a64_tbnz_fixaddr);
+  HOOK(a64_ldr_x17);
+  HOOK(a64_adrp_add_x17);
 #endif
 
   if (unittest_is_hook_addr) {
@@ -820,6 +824,8 @@ int unittest_unhook(void) {
   UNHOOK(a64_tbz_fixaddr);
   UNHOOK(a64_tbnz);
   UNHOOK(a64_tbnz_fixaddr);
+  UNHOOK(a64_ldr_x17);
+  UNHOOK(a64_adrp_add_x17);
 #endif
 
   UNHOOK(hidden_func);
@@ -1226,7 +1232,8 @@ int unittest_run(bool hookee2_loaded) {
   RUN(a64_tbz_fixaddr);
   RUN(a64_tbnz);
   RUN(a64_tbnz_fixaddr);
-
+  RUN(a64_ldr_x17);
+  RUN(a64_adrp_add_x17);
 #endif
 
   LOG(DELIMITER, "TEST - hidden function");

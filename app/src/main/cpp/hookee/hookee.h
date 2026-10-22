@@ -125,6 +125,8 @@ int test_a64_instr_b_cond(int a, int b);
 int test_a64_instr_bl(int a, int b);
 int test_a64_instr_cbz(int a, int b);
 int test_a64_instr_tbz(int a, int b);
+int test_a64_ldr_x17(int a, int b);
+int test_a64_adrp_add_x17(int a, int b);
 
 #endif
 

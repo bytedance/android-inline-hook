@@ -447,3 +447,28 @@ ENTRY_HIDDEN_ARM(test_a64_helper_hidden_tail)
     add      x0, x0, x1
     ret
 END(test_a64_helper_global_tail)
+
+// LDR X17; BR X17
+ENTRY_GLOBAL_ARM(test_a64_ldr_x17)
+    ldr      x17, .L_a64_ldr_x17_target
+    br       x17
+    nop
+    nop
+    ret
+END(test_a64_ldr_x17)
+
+.pushsection .data.rel.ro, "aw", %progbits
+.balign 8
+.L_a64_ldr_x17_target:
+    .xword   test_a64_helper_hidden_tail
+.popsection
+
+// ADRP X17; ADD X17; BR X17
+ENTRY_GLOBAL_ARM(test_a64_adrp_add_x17)
+    adrp     x17, test_a64_helper_hidden_tail
+    add      x17, x17, :lo12:test_a64_helper_hidden_tail
+    br       x17
+    nop
+    nop
+    ret
+END(test_a64_adrp_add_x17)
