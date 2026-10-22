@@ -39,6 +39,9 @@ typedef struct {
   size_t inst_lens_cnt;
   sh_island_t *island_rewrite;  // .size = 8
   sh_addr_info_t *addr_info;
+  bool resume_ip_x16;
+  //unused
+  uint8_t unused_padding[7];
 } sh_a64_rewrite_info_t;
 
 size_t sh_a64_get_rewrite_inst_len(uint32_t inst, bool use_branch_island);
@@ -47,7 +50,7 @@ size_t sh_a64_rewrite(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_a64_rewrite
 size_t sh_a64_nop(uint32_t *buf);
 
 size_t sh_a64_absolute_jump_with_br_ip(uint32_t *buf, uintptr_t addr);
-size_t sh_a64_absolute_jump_with_ret_ip(uint32_t *buf, uintptr_t addr);
+size_t sh_a64_absolute_jump_with_ret_ip(uint32_t *buf, uintptr_t addr, sh_a64_rewrite_info_t *rinfo);
 size_t sh_a64_restore_ip(uint32_t *buf);
 
 // for test
