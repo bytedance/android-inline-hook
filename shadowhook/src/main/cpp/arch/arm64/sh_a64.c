@@ -227,6 +227,8 @@ static size_t sh_a64_rewrite_adr(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_
   else  // ADRP
     addr = (pc & 0xFFFFFFFFFFFFF000) + SH_UTIL_SIGN_EXTEND_64((immhi << 14u) | (immlo << 12u), 33u);
   if (sh_a64_is_addr_need_fix(addr, rinfo)) return 0;  // rewrite failed
+  if (xd == 17 && type == ADRP)
+    rinfo->resume_ip_x16 = true;
 
   buf[0] = 0x58000040u | xd;  // LDR Xd, #8
   buf[1] = 0x14000003;        // B #12
@@ -246,6 +248,8 @@ static size_t sh_a64_rewrite_ldr(uint32_t *buf, uint32_t inst, uintptr_t pc, sh_
     if (type != PRFM_LIT) return 0;  // rewrite failed
     addr = sh_a64_fix_addr(addr, rinfo);
   }
+  if (rt == 17 && type == LDR_LIT_64)
+    rinfo->resume_ip_x16 = true;
 
   if (type == LDR_LIT_32 || type == LDR_LIT_64 || type == LDRSW_LIT) {
     buf[0] = 0x58000060u | rt;  // LDR Xt, #12
@@ -378,9 +382,9 @@ size_t sh_a64_absolute_jump_with_br_ip(uint32_t *buf, uintptr_t addr) {
 // https://android-review.googlesource.com/c/platform/bionic/+/1242754
 // https://developer.android.com/ndk/guides/abis#armv9_enabling_pac_and_bti_for_cc
 // https://developer.arm.com/documentation/100067/0612/armclang-Command-line-Options/-mbranch-protection
-size_t sh_a64_absolute_jump_with_ret_ip(uint32_t *buf, uintptr_t addr) {
-  buf[0] = 0x58000051;  // LDR X17, #8
-  buf[1] = 0xd65f0220;  // RET X17
+size_t sh_a64_absolute_jump_with_ret_ip(uint32_t *buf, uintptr_t addr, sh_a64_rewrite_info_t *rinfo) {
+  buf[0] = rinfo->resume_ip_x16 ? 0x58000050u : 0x58000051u;  // LDR X16/X17, #8
+  buf[1] = rinfo->resume_ip_x16 ? 0xd65f0200u : 0xd65f0220u;  // RET X16/X17
   buf[2] = addr & 0xFFFFFFFF;
   buf[3] = addr >> 32u;
   return 16;
