@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    enableKotlin = false
     namespace = 'com.bytedance.shadowhook'
     compileSdk = rootProject.ext.compileSdkVersion
     buildToolsVersion = rootProject.ext.buildToolsVersion
