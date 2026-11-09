@@ -837,17 +837,21 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
 
   // find symbol
   size_t symbol_len = strlen(symbol);
+  ElfW(Sym) *suffix_match = NULL;
   for (size_t i = 0; i < self->symtab_cnt; i++) {
     ElfW(Sym) *sym = self->symtab + i;
 
     if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) continue;
     if (sym->st_name >= self->strtab_sz) continue;
-    if (!xdl_dsym_is_match(self->strtab + sym->st_name, symbol, symbol_len)) continue;
+    const char *name = self->strtab + sym->st_name;
+    if (!xdl_dsym_is_match(name, symbol, symbol_len)) continue;
 
-    return xdl_resolve_symbol_address(self, sym, symbol_size);
+    if ('\0' == name[symbol_len]) return xdl_resolve_symbol_address(self, sym, symbol_size);
+    if (NULL == suffix_match && STT_NOTYPE != ELF_ST_TYPE(sym->st_info)) suffix_match = sym;
   }
 
-  return NULL;
+  if (NULL == suffix_match) return NULL;
+  return xdl_resolve_symbol_address(self, suffix_match, symbol_size);
 }
 
 static bool xdl_elf_is_match(uintptr_t load_bias, const ElfW(Phdr) *dlpi_phdr, ElfW(Half) dlpi_phnum,
